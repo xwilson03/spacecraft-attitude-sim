@@ -65,8 +65,8 @@ int main(int argc, char* argv[]) {
         vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
         f->glShaderSource(vertexShader, 1, &vertexShaderSrc, NULL);
         f->glCompileShader(vertexShader);
-        f->glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &compileSuccess);
         
+        f->glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &compileSuccess);
         if (!compileSuccess) {
             f->glGetShaderInfoLog(vertexShader, COMPILE_LOG_SIZE, NULL, log);
             std::cout << "Vertex shader compilation failed. What: " << log << std::endl;
@@ -76,8 +76,8 @@ int main(int argc, char* argv[]) {
         fragmentShader = f->glCreateShader(GL_FRAGMENT_SHADER);
         f->glShaderSource(fragmentShader, 1, &fragmentShaderSrc, NULL);
         f->glCompileShader(fragmentShader);
-        f->glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &compileSuccess);
         
+        f->glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &compileSuccess);
         if (!compileSuccess) {
             f->glGetShaderInfoLog(fragmentShader, COMPILE_LOG_SIZE, NULL, log);
             std::cout << "Fragment shader compilation failed. What: " << log << std::endl;
@@ -88,8 +88,8 @@ int main(int argc, char* argv[]) {
         f->glAttachShader(shaderProgram, vertexShader);
         f->glAttachShader(shaderProgram, fragmentShader);
         f->glLinkProgram(shaderProgram);
-        f->glGetProgramiv(shaderProgram, GL_LINK_STATUS, &compileSuccess);
         
+        f->glGetProgramiv(shaderProgram, GL_LINK_STATUS, &compileSuccess);
         if (!compileSuccess) {
             f->glGetProgramInfoLog(shaderProgram, COMPILE_LOG_SIZE, NULL, log);
             std::cout << "Shader program linking failed. What: " << log << std::endl;
