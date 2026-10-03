@@ -2,7 +2,8 @@
 
 #include <QApplication>
 #include <QOpenGLWidget>
-#include <QOpenGLFunctions>
+#include <QOpenGLContext>
+#include <QOpenGLExtraFunctions>
 
 
 int main(int argc, char* argv[]) {
@@ -14,6 +15,7 @@ int main(int argc, char* argv[]) {
     window.setWindowTitle("Spacecraft Attitude Sim");
 
 
+    unsigned int VAO;
     unsigned int VBO;
     unsigned int vertexShader;
     unsigned int fragmentShader;
@@ -50,16 +52,20 @@ int main(int argc, char* argv[]) {
     // Initialize OpenGL context
     QObject::connect(&window, &QOpenGLWidget::aboutToCompose, [&]() {
         window.makeCurrent();
-        QOpenGLFunctions* f = window.context()->functions();
+        auto f = window.context()->extraFunctions();
 
         // Initialize function ptrs, set clear color
         f->initializeOpenGLFunctions();
         f->glClearColor(0.0, 0.0, 0.0, 1.0);
 
-        // Initialize vertex buffer object with data
+        // Initialize vertex data containers
+        f->glGenVertexArrays(1, &VAO);
+        f->glBindVertexArray(VAO);
+        
         f->glGenBuffers(1, &VBO);
         f->glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        f->glBufferData(GL_ARRAY_BUFFER, vertices.size(), vertices.data(), GL_DYNAMIC_DRAW);
+        f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+        f->glEnableVertexAttribArray(0);
 
         // Initialize and compile vertex shader
         vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
@@ -95,8 +101,6 @@ int main(int argc, char* argv[]) {
             std::cout << "Shader program linking failed. What: " << log << std::endl;
         }
 
-        f->glUseProgram(shaderProgram);
-
         f->glDeleteShader(vertexShader);
         f->glDeleteShader(fragmentShader);
         window.doneCurrent();
@@ -105,9 +109,15 @@ int main(int argc, char* argv[]) {
     // Connect directly to the frame rendering phase
     QObject::connect(&window, &QOpenGLWidget::frameSwapped, [&]() {
         window.makeCurrent();
-        QOpenGLFunctions* f = window.context()->functions();
+        auto f = window.context()->extraFunctions();
 
         f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Copy vertex data
+        f->glUseProgram(shaderProgram);
+        f->glBindVertexArray(VAO);
+        f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
+        f->glDrawArrays(GL_TRIANGLES, 0, 3);
 
         window.doneCurrent();
     });
