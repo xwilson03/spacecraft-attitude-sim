@@ -8,6 +8,8 @@
 
 int main(int argc, char* argv[]) {
 
+    // App Setup
+
     QApplication app(argc, argv);
 
     QOpenGLWidget window;
@@ -15,8 +17,27 @@ int main(int argc, char* argv[]) {
     window.setWindowTitle("Spacecraft Attitude Sim");
 
 
+    // Vertex Data
+
     unsigned int VAO;
     unsigned int VBO;
+    unsigned int EBO;
+
+    std::array vertices = {
+        -0.5f,  0.5f, 0.0f,     // top left
+         0.5f,  0.5f, 0.0f,     // top right
+        -0.5f, -0.5f, 0.0f,     // bottom left
+         0.5f, -0.5f, 0.0f,     // bottom right
+    };
+
+    std::array indices = {
+        0u, 1u, 3u,             // triangle 1
+        0u, 2u, 3u,             // triangle 2
+    };
+
+
+    // Shader Data
+
     unsigned int vertexShader;
     unsigned int fragmentShader;
     unsigned int shaderProgram;
@@ -24,12 +45,6 @@ int main(int argc, char* argv[]) {
     int compileSuccess;
     constexpr int COMPILE_LOG_SIZE = 512;
     char log[COMPILE_LOG_SIZE];
-
-    std::array<float, 9> vertices = {
-        -0.5, -0.5, 0.0,
-         0.5, -0.5, 0.0,
-         0.0,  0.5, 0.0,
-    };
 
     const char* vertexShaderSrc = R"(
         #version 330 core
@@ -50,6 +65,7 @@ int main(int argc, char* argv[]) {
 
 
     // Initialize OpenGL context
+
     QObject::connect(&window, &QOpenGLWidget::aboutToCompose, [&]() {
         window.makeCurrent();
         auto f = window.context()->extraFunctions();
@@ -64,6 +80,10 @@ int main(int argc, char* argv[]) {
         
         f->glGenBuffers(1, &VBO);
         f->glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+        f->glGenBuffers(1, &EBO);
+        f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
         f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
         f->glEnableVertexAttribArray(0);
 
@@ -101,6 +121,7 @@ int main(int argc, char* argv[]) {
             std::cout << "Shader program linking failed. What: " << log << std::endl;
         }
 
+        // Clean up
         f->glDeleteShader(vertexShader);
         f->glDeleteShader(fragmentShader);
         window.doneCurrent();
@@ -117,7 +138,8 @@ int main(int argc, char* argv[]) {
         f->glUseProgram(shaderProgram);
         f->glBindVertexArray(VAO);
         f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
-        f->glDrawArrays(GL_TRIANGLES, 0, 3);
+        f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
+        f->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         window.doneCurrent();
     });
