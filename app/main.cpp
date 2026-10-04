@@ -19,9 +19,7 @@ int main(int argc, char* argv[]) {
 
     // Vertex Data
 
-    unsigned int VAO;
-    unsigned int VBO;
-    unsigned int EBO;
+    unsigned int VAO, VBO, EBO;
 
     std::array vertices = {
         -0.5f,  0.5f, 0.0f,     // top left
@@ -38,10 +36,7 @@ int main(int argc, char* argv[]) {
 
     // Shader Data
 
-    unsigned int vertexShader;
-    unsigned int fragmentShader;
-    unsigned int shaderProgram;
-
+    unsigned int vertexShader, fragmentShader, shaderProgram;
     int compileSuccess;
     constexpr int COMPILE_LOG_SIZE = 512;
     char log[COMPILE_LOG_SIZE];
@@ -70,9 +65,10 @@ int main(int argc, char* argv[]) {
         window.makeCurrent();
         auto f = window.context()->extraFunctions();
 
-        // Initialize function ptrs, set clear color
+        // Initialize function ptrs, set clear color, depth bit
         f->initializeOpenGLFunctions();
         f->glClearColor(0.0, 0.0, 0.0, 1.0);
+        f->glEnable(GL_DEPTH_TEST);
 
         // Initialize vertex data containers
         f->glGenVertexArrays(1, &VAO);
@@ -139,7 +135,7 @@ int main(int argc, char* argv[]) {
         f->glBindVertexArray(VAO);
         f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
         f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
-        f->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        f->glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
         window.doneCurrent();
     });
