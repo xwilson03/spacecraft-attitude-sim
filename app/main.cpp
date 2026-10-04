@@ -17,6 +17,31 @@ int main(int argc, char* argv[]) {
     window.setWindowTitle("Spacecraft Attitude Sim");
 
 
+    // Shader Data
+
+    unsigned int vertexShader, fragmentShader, shaderProgram;
+    int compileSuccess;
+    constexpr int COMPILE_LOG_SIZE = 512;
+    char log[COMPILE_LOG_SIZE];
+
+    const char* vertexShaderSrc = R"(
+        #version 330 core
+        layout (location = 0) in vec3 aPos;
+
+        void main() {
+            gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+        }
+    )";
+
+    const char* fragmentShaderSrc = R"(
+        #version 330 core
+        out vec4 color;
+        void main() {
+            color = vec4(1.0, 1.0, 1.0, 1.0);
+        }
+    )";
+
+
     // Vertex Data
 
     unsigned int VAO, VBO, EBO;
@@ -64,31 +89,6 @@ int main(int argc, char* argv[]) {
         2u, 3u, 7u,
         2u, 6u, 7u,
     };
-
-
-    // Shader Data
-
-    unsigned int vertexShader, fragmentShader, shaderProgram;
-    int compileSuccess;
-    constexpr int COMPILE_LOG_SIZE = 512;
-    char log[COMPILE_LOG_SIZE];
-
-    const char* vertexShaderSrc = R"(
-        #version 330 core
-        layout (location = 0) in vec3 aPos;
-
-        void main() {
-            gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-        }
-    )";
-
-    const char* fragmentShaderSrc = R"(
-        #version 330 core
-        out vec4 color;
-        void main() {
-            color = vec4(1.0, 1.0, 1.0, 1.0);
-        }
-    )";
 
 
     // Initialize OpenGL context
