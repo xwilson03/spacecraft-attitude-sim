@@ -21,16 +21,48 @@ int main(int argc, char* argv[]) {
 
     unsigned int VAO, VBO, EBO;
 
-    std::array vertices = {
-        -0.5f,  0.5f, 0.0f,     // top left
-         0.5f,  0.5f, 0.0f,     // top right
-        -0.5f, -0.5f, 0.0f,     // bottom left
-         0.5f, -0.5f, 0.0f,     // bottom right
+    struct Vertex {
+        float x, y, z;
     };
 
+    std::array<Vertex, 8> vertices;
+    int i = 0;
+    for (const auto x: {-0.5f, 0.5f}) {
+        for (const auto y: {0.5f, -0.5f}) {
+            for (const auto z: {0.5f, -0.5f}) {
+                vertices[i++] = {x, y, z};
+            }
+        }
+    }
+
+    // 0 = top left front
+    // +1 = front -> back
+    // +2 = top -> bottom
+    // +4 = left -> right
     std::array indices = {
-        0u, 1u, 3u,             // triangle 1
-        0u, 2u, 3u,             // triangle 2
+        // front
+        0u, 2u, 6u,
+        0u, 4u, 6u,
+
+        // left
+        1u, 3u, 2u,
+        1u, 0u, 2u,
+
+        // right
+        4u, 6u, 7u,
+        4u, 5u, 7u,
+
+        // back
+        5u, 7u, 3u,
+        5u, 1u, 3u,
+
+        // top
+        1u, 0u, 4u,
+        1u, 5u, 4u,
+
+        // bottom
+        2u, 3u, 7u,
+        2u, 6u, 7u,
     };
 
 
