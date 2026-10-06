@@ -16,6 +16,7 @@ using Eigen::Quaternionf;
 using Eigen::Translation3f;
 using Eigen::Affine3f;
 using Eigen::Matrix4f;
+using Eigen::AngleAxisf;
 
 
 class GLSimWidget : public QOpenGLWidget {
@@ -121,12 +122,12 @@ int main(int argc, char* argv[]) {
     const Vector3f cameraPos (5.0f, 5.0f, 5.0f);
     const Vector3f cameraRotDeg (-36.0f, 45.0f, 0.0f);
     const Vector3f cameraRotRad = cameraRotDeg.array() * pi / 180.0f;
-    const Quaternionf cameraRotQuat = Eigen::AngleAxisf(cameraRotRad.y(), Vector3f::UnitY())
-                              * Eigen::AngleAxisf(cameraRotRad.x(), Vector3f::UnitX())
-                              * Eigen::AngleAxisf(cameraRotRad.z(), Vector3f::UnitZ());
+    const Quaternionf cameraRotQuat = AngleAxisf(cameraRotRad.y(), Vector3f::UnitY())
+                                    * AngleAxisf(cameraRotRad.x(), Vector3f::UnitX())
+                                    * AngleAxisf(cameraRotRad.z(), Vector3f::UnitZ());
     const Affine3f cameraTransform = Translation3f(cameraPos)
                                    * cameraRotQuat;
-                             // no scaling
+                                   // no scaling
 
     const Matrix4f view = cameraTransform.inverse().matrix();
     
@@ -216,7 +217,7 @@ int main(int argc, char* argv[]) {
     // Connect directly to the frame rendering phase
     window.onPaint = [&]() {
         window.makeCurrent();
-        auto f = window.context()->extraFunctions();
+        const auto f = window.context()->extraFunctions();
 
         f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
