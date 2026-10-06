@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -118,6 +119,10 @@ int main(int argc, char* argv[]) {
 
     const float pi = std::numbers::pi_v<float>;
 
+    // Model Matrix
+    const Vector3f cubeRotDeg (30.0f, 60.0f, 90.0f);
+    const Vector3f cubeRotRad = cubeRotDeg.array() * pi / 180.0f;
+
     // View Matrix
     const Vector3f cameraPos (5.0f, 5.0f, 5.0f);
     const Vector3f cameraRotDeg (-36.0f, 45.0f, 0.0f);
@@ -149,6 +154,11 @@ int main(int argc, char* argv[]) {
 
     // Combined Matrix (No "Model" component as cube is at (0, 0, 0))
     Matrix4f mvp = projection * view;
+
+
+    // State
+    Quaternionf currentCubeRotQuat = Quaternionf::Identity();
+    auto lastTime = std::chrono::steady_clock::now();
 
     // Initialize OpenGL context
 
@@ -221,10 +231,23 @@ int main(int argc, char* argv[]) {
 
         f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Recalculate MVP in case aspect ratio changed
+        // Calculate deltaTime
+        const auto currentTime = std::chrono::steady_clock::now();
+        const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
+        lastTime = currentTime;
+
+        // Update cube rotation matrix
+        const Quaternionf cubeRotQuat = AngleAxisf(cubeRotRad.y() * deltaTime, Vector3f::UnitY())
+                                      * AngleAxisf(cubeRotRad.x() * deltaTime, Vector3f::UnitX())
+                                      * AngleAxisf(cubeRotRad.z() * deltaTime, Vector3f::UnitZ());
+        currentCubeRotQuat = (currentCubeRotQuat * cubeRotQuat).normalized();
+        const Matrix4f model = Affine3f(currentCubeRotQuat).matrix();
+
+        // Recalculate projection matrix in case aspect ratio changed
         aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
         projection(0, 0) = focalDistance / aspectRatio;
-        mvp = projection * view;
+
+        mvp = projection * view * model;
 
         // Set shader program and update MVP matrix
         f->glUseProgram(shaderProgram);
