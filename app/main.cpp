@@ -1,9 +1,19 @@
+#include <cmath>
 #include <iostream>
+#include <numbers>
 
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <QApplication>
 #include <QOpenGLWidget>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
+
+using Eigen::Vector3f;
+using Eigen::Quaternionf;
+using Eigen::Translation3f;
+using Eigen::Affine3f;
+using Eigen::Matrix4f;
 
 
 int main(int argc, char* argv[]) {
@@ -27,9 +37,10 @@ int main(int argc, char* argv[]) {
     const char* vertexShaderSrc = R"(
         #version 330 core
         layout (location = 0) in vec3 aPos;
+        uniform mat4 mvp;
 
         void main() {
-            gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+            gl_Position = mvp * vec4(aPos, 1.0);
         }
     )";
 
@@ -64,7 +75,7 @@ int main(int argc, char* argv[]) {
     // +1 = front -> back
     // +2 = top -> bottom
     // +4 = left -> right
-    std::array indices = {
+    const std::array indices = {
         // front
         0u, 2u, 6u,
         0u, 4u, 6u,
@@ -90,6 +101,42 @@ int main(int argc, char* argv[]) {
         2u, 6u, 7u,
     };
 
+
+    // Rendering
+
+    const float pi = std::numbers::pi_v<float>;
+
+    // View Matrix
+    const Vector3f cameraPos (5.0f, 5.0f, 5.0f);
+    const Vector3f cameraRotDeg (-36.0f, 45.0f, 0.0f);
+    const Vector3f cameraRotRad = cameraRotDeg.array() * pi / 180.0f;
+    const Quaternionf cameraRotQuat = Eigen::AngleAxisf(cameraRotRad.y(), Vector3f::UnitY())
+                              * Eigen::AngleAxisf(cameraRotRad.x(), Vector3f::UnitX())
+                              * Eigen::AngleAxisf(cameraRotRad.z(), Vector3f::UnitZ());
+    const Affine3f cameraTransform = Translation3f(cameraPos)
+                                   * cameraRotQuat;
+                             // no scaling
+
+    const Matrix4f view = cameraTransform.inverse().matrix();
+    
+    // Projection Matrix
+    const float cameraVerticalFovDeg = 70.0;
+    const float cameraNearPlane = 0.1;
+    const float cameraFarPlane = 100.0;
+
+    const float cameraVerticalFovRad = cameraVerticalFovDeg * pi / 180.0f;
+    const float focalDistance = 1.0f / std::tan(cameraVerticalFovRad / 2.0f); // use vertical FOV to compute distance from camera where screen height = 2 world units (+-1)
+    float aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
+
+    Matrix4f projection = Matrix4f::Zero();
+    projection(0, 0) = focalDistance / aspectRatio;                                                          // scale X to +-1 in screen-space
+    projection(1, 1) = focalDistance;                                                                        // scale Y to +-1 in screen-space
+    projection(2, 2) = (cameraNearPlane + cameraFarPlane) / (cameraFarPlane - cameraNearPlane) * -1;         // depth = (Az + B) / (-z); scale
+    projection(2, 3) = cameraFarPlane * 2.0f * (cameraNearPlane / (cameraFarPlane - cameraNearPlane) * -1);  //    near plane to -1 and far to +1
+    projection(3, 2) = -1.0f;                                                                                // divide all by -z for perspective scaling
+
+    // Combined Matrix (No "Model" component as cube is at (0, 0, 0))
+    Matrix4f mvp = projection * view;
 
     // Initialize OpenGL context
 
@@ -162,8 +209,16 @@ int main(int argc, char* argv[]) {
 
         f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Copy vertex data
+        // Recalculate MVP in case aspect ratio changed
+        aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
+        projection(0, 0) = focalDistance / aspectRatio;
+        mvp = projection * view;
+
+        // Set shader program and update MVP matrix
         f->glUseProgram(shaderProgram);
+        f->glUniformMatrix4fv(f->glGetUniformLocation(shaderProgram, "mvp"), 1, GL_FALSE, mvp.data());
+
+        // Copy vertex data
         f->glBindVertexArray(VAO);
         f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
         f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
