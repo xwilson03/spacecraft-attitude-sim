@@ -1,4 +1,5 @@
 #include <cmath>
+#include <functional>
 #include <iostream>
 #include <numbers>
 
@@ -8,6 +9,7 @@
 #include <QOpenGLWidget>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
+#include <QTimer>
 
 using Eigen::Vector3f;
 using Eigen::Quaternionf;
@@ -16,13 +18,22 @@ using Eigen::Affine3f;
 using Eigen::Matrix4f;
 
 
+class GLSimWidget : public QOpenGLWidget {
+public:
+    std::function<void()> onInit, onPaint;
+protected:
+    void initializeGL() override { if (onInit)  onInit();  }
+    void paintGL()      override { if (onPaint) onPaint(); }
+};
+
+
 int main(int argc, char* argv[]) {
 
     // App Setup
 
     QApplication app(argc, argv);
 
-    QOpenGLWidget window;
+    GLSimWidget window;
     window.resize(800, 600);
     window.setWindowTitle("Spacecraft Attitude Sim");
 
@@ -140,7 +151,7 @@ int main(int argc, char* argv[]) {
 
     // Initialize OpenGL context
 
-    QObject::connect(&window, &QOpenGLWidget::aboutToCompose, [&]() {
+    window.onInit = [&]() {
         window.makeCurrent();
         auto f = window.context()->extraFunctions();
 
@@ -200,10 +211,10 @@ int main(int argc, char* argv[]) {
         f->glDeleteShader(vertexShader);
         f->glDeleteShader(fragmentShader);
         window.doneCurrent();
-    });
+    };
 
     // Connect directly to the frame rendering phase
-    QObject::connect(&window, &QOpenGLWidget::frameSwapped, [&]() {
+    window.onPaint = [&]() {
         window.makeCurrent();
         auto f = window.context()->extraFunctions();
 
@@ -225,7 +236,11 @@ int main(int argc, char* argv[]) {
         f->glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
         window.doneCurrent();
-    });
+    };
+
+    QTimer timer;
+    QObject::connect(&timer, &QTimer::timeout, &window, qOverload<>(&QWidget::update));
+    timer.start((1.0f / 60.0f) * 1000.0f);
 
     window.show();
     return app.exec();
