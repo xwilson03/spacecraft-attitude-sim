@@ -61,7 +61,11 @@ public:
     {};
 
     Affine3f transform() const {
-        return scale.asDiagonal() * Translation3f(position) * rotation;
+        auto transform = Affine3f::Identity();
+        transform.translate(position);
+        transform.rotate(rotation);
+        transform.scale(scale);
+        return transform;
     }
 };
 
@@ -174,6 +178,7 @@ int main(int argc, char* argv[]) {
     auto lastTime = std::chrono::steady_clock::now();
 
     Transform cube;
+    cube.scale = Vector3f(1.0f, 3.0f, 5.0f);
     cube.velocity.angular = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
 
     const Transform camera(
