@@ -29,6 +29,43 @@ protected:
 };
 
 
+class Transform {
+
+public:
+
+    class Velocity {
+    public:
+        Vector3f linear  = Vector3f::Zero();
+        Vector3f angular = Vector3f::Zero();
+    };
+
+    Vector3f position    = Vector3f::Zero();
+    Quaternionf rotation = Quaternionf::Identity();
+    Vector3f scale       = Vector3f(1.0f, 1.0f, 1.0f);
+    Velocity velocity;
+
+    Transform() {};
+
+    Transform(
+        Vector3f aPosition,
+        Vector3f aRotation,
+        Vector3f aScale
+    )
+    : position(aPosition)
+    , rotation(
+        AngleAxisf(aRotation.y(), Vector3f::UnitY())
+      * AngleAxisf(aRotation.x(), Vector3f::UnitX())
+      * AngleAxisf(aRotation.z(), Vector3f::UnitZ())
+    )
+    , scale(aScale)
+    {};
+
+    Affine3f transform() const {
+        return scale.asDiagonal() * Translation3f(position) * rotation;
+    }
+};
+
+
 int main(int argc, char* argv[]) {
 
     // App Setup
@@ -115,34 +152,32 @@ int main(int argc, char* argv[]) {
     };
 
 
+    // State
+
+    const float& pi = std::numbers::pi_v<float>;
+    auto lastTime = std::chrono::steady_clock::now();
+
+    Transform cube;
+    cube.velocity.angular = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
+
+    const Transform camera(
+        Vector3f(5.0f, 5.0f, 5.0f),
+        Vector3f(-36.0f, 45.0f, 0.0f) * pi / 180.0f,
+        Vector3f(1.0f, 1.0f, 1.0f)
+    );
+
+
     // Rendering
 
-    const float pi = std::numbers::pi_v<float>;
-
-    // Model Matrix
-    const Vector3f cubeRotDeg (30.0f, 60.0f, 90.0f);
-    const Vector3f cubeRotRad = cubeRotDeg.array() * pi / 180.0f;
-
     // View Matrix
-    const Vector3f cameraPos (5.0f, 5.0f, 5.0f);
-    const Vector3f cameraRotDeg (-36.0f, 45.0f, 0.0f);
-    const Vector3f cameraRotRad = cameraRotDeg.array() * pi / 180.0f;
-    const Quaternionf cameraRotQuat = AngleAxisf(cameraRotRad.y(), Vector3f::UnitY())
-                                    * AngleAxisf(cameraRotRad.x(), Vector3f::UnitX())
-                                    * AngleAxisf(cameraRotRad.z(), Vector3f::UnitZ());
-    const Affine3f cameraTransform = Translation3f(cameraPos)
-                                   * cameraRotQuat;
-                                   // no scaling
-
-    const Matrix4f view = cameraTransform.inverse().matrix();
+    const Matrix4f view = camera.transform().inverse().matrix();
     
     // Projection Matrix
-    const float cameraVerticalFovDeg = 70.0;
-    const float cameraNearPlane = 0.1;
-    const float cameraFarPlane = 100.0;
+    const float cameraVertFovDeg = 70.0f;
+    const float cameraNearPlane = 0.1f;
+    const float cameraFarPlane = 100.0f;
 
-    const float cameraVerticalFovRad = cameraVerticalFovDeg * pi / 180.0f;
-    const float focalDistance = 1.0f / std::tan(cameraVerticalFovRad / 2.0f); // use vertical FOV to compute distance from camera where screen height = 2 world units (+-1)
+    const float focalDistance = 1.0f / std::tan((cameraVertFovDeg * pi / 180.0f) / 2.0f); // use vertical FOV to compute distance from camera where screen height = 2 world units (+-1)
     float aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
 
     Matrix4f projection = Matrix4f::Zero();
@@ -155,10 +190,6 @@ int main(int argc, char* argv[]) {
     // Combined Matrix (No "Model" component as cube is at (0, 0, 0))
     Matrix4f mvp = projection * view;
 
-
-    // State
-    Quaternionf currentCubeRotQuat = Quaternionf::Identity();
-    auto lastTime = std::chrono::steady_clock::now();
 
     // Initialize OpenGL context
 
@@ -237,11 +268,16 @@ int main(int argc, char* argv[]) {
         lastTime = currentTime;
 
         // Update cube rotation matrix
-        const Quaternionf cubeRotQuat = AngleAxisf(cubeRotRad.y() * deltaTime, Vector3f::UnitY())
-                                      * AngleAxisf(cubeRotRad.x() * deltaTime, Vector3f::UnitX())
-                                      * AngleAxisf(cubeRotRad.z() * deltaTime, Vector3f::UnitZ());
-        currentCubeRotQuat = (currentCubeRotQuat * cubeRotQuat).normalized();
-        const Matrix4f model = Affine3f(currentCubeRotQuat).matrix();
+
+
+        const Vector3f cubeAngVel = cube.velocity.angular;
+        
+
+        cube.rotation *= AngleAxisf(cubeAngVel.y() * deltaTime, Vector3f::UnitY())
+                       * AngleAxisf(cubeAngVel.x() * deltaTime, Vector3f::UnitX())
+                       * AngleAxisf(cubeAngVel.z() * deltaTime, Vector3f::UnitZ());
+        cube.rotation.normalize();
+        const Matrix4f model = cube.transform().matrix();
 
         // Recalculate projection matrix in case aspect ratio changed
         aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
