@@ -77,12 +77,23 @@ void step(auto& lastTime, Transform& cube) {
     const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
     lastTime = currentTime;
 
-    // Update cube rotation matrix
-    const Vector3f cubeAngVel = cube.velocity.angular;
-    cube.rotation *= AngleAxisf(cubeAngVel.y() * deltaTime, Vector3f::UnitY())
-                   * AngleAxisf(cubeAngVel.x() * deltaTime, Vector3f::UnitX())
-                   * AngleAxisf(cubeAngVel.z() * deltaTime, Vector3f::UnitZ());
-    cube.rotation.normalize();
+    // Use scale to approximate inertia
+    const Vector3f s = cube.scale;
+    const Vector3f inertia (
+        s.y() * s.y() + s.z() * s.z(),
+        s.x() * s.x() + s.z() * s.z(),
+        s.x() * s.x() + s.y() * s.y()
+    );
+
+    // Update angular velocity
+    const Vector3f w = cube.velocity.angular;
+    cube.velocity.angular += deltaTime * (-w.cross(inertia.cwiseProduct(w))).cwiseQuotient(inertia);
+
+    // Update cube orientation
+    const float angle = w.norm() * deltaTime;
+    if (angle <= 0.0f) return;
+
+    cube.rotation = (cube.rotation * Quaternionf(AngleAxisf(angle, w.normalized()))).normalized();
 }
 
 
