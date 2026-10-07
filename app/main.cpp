@@ -66,6 +66,22 @@ public:
 };
 
 
+void step(auto& lastTime, Transform& cube) {
+
+    // Calculate deltaTime
+    const auto currentTime = std::chrono::steady_clock::now();
+    const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
+    lastTime = currentTime;
+
+    // Update cube rotation matrix
+    const Vector3f cubeAngVel = cube.velocity.angular;
+    cube.rotation *= AngleAxisf(cubeAngVel.y() * deltaTime, Vector3f::UnitY())
+                   * AngleAxisf(cubeAngVel.x() * deltaTime, Vector3f::UnitX())
+                   * AngleAxisf(cubeAngVel.z() * deltaTime, Vector3f::UnitZ());
+    cube.rotation.normalize();
+}
+
+
 int main(int argc, char* argv[]) {
 
     // App Setup
@@ -262,27 +278,11 @@ int main(int argc, char* argv[]) {
 
         f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Calculate deltaTime
-        const auto currentTime = std::chrono::steady_clock::now();
-        const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
-        lastTime = currentTime;
-
-        // Update cube rotation matrix
-
-
-        const Vector3f cubeAngVel = cube.velocity.angular;
-        
-
-        cube.rotation *= AngleAxisf(cubeAngVel.y() * deltaTime, Vector3f::UnitY())
-                       * AngleAxisf(cubeAngVel.x() * deltaTime, Vector3f::UnitX())
-                       * AngleAxisf(cubeAngVel.z() * deltaTime, Vector3f::UnitZ());
-        cube.rotation.normalize();
-        const Matrix4f model = cube.transform().matrix();
-
         // Recalculate projection matrix in case aspect ratio changed
         aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
         projection(0, 0) = focalDistance / aspectRatio;
 
+        const Matrix4f& model = cube.transform().matrix();
         mvp = projection * view * model;
 
         // Set shader program and update MVP matrix
@@ -299,7 +299,10 @@ int main(int argc, char* argv[]) {
     };
 
     QTimer timer;
-    QObject::connect(&timer, &QTimer::timeout, &window, qOverload<>(&QWidget::update));
+    QObject::connect(&timer, &QTimer::timeout, [&]() {
+        step(lastTime, cube);
+        window.update();
+    });
     timer.start((1.0f / 60.0f) * 1000.0f);
 
     window.show();
