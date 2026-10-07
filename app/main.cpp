@@ -166,18 +166,18 @@ int main(int argc, char* argv[]) {
         Vector3f(1.0f, 1.0f, 1.0f)
     );
 
+
     // Rendering
 
     // View Matrix
     const Matrix4f view = camera.transform().inverse().matrix();
     
     // Projection Matrix
-    const float cameraVerticalFovDeg = 70.0;
-    const float cameraNearPlane = 0.1;
-    const float cameraFarPlane = 100.0;
+    const float cameraVertFovDeg = 70.0f;
+    const float cameraNearPlane = 0.1f;
+    const float cameraFarPlane = 100.0f;
 
-    const float cameraVerticalFovRad = cameraVerticalFovDeg * pi / 180.0f;
-    const float focalDistance = 1.0f / std::tan(cameraVerticalFovRad / 2.0f); // use vertical FOV to compute distance from camera where screen height = 2 world units (+-1)
+    const float focalDistance = 1.0f / std::tan((cameraVertFovDeg * pi / 180.0f) / 2.0f); // use vertical FOV to compute distance from camera where screen height = 2 world units (+-1)
     float aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
 
     Matrix4f projection = Matrix4f::Zero();
