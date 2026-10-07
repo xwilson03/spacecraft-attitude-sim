@@ -224,9 +224,11 @@ int main(int argc, char* argv[]) {
         
         f->glGenBuffers(1, &VBO);
         f->glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
 
         f->glGenBuffers(1, &EBO);
         f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
 
         f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
         f->glEnableVertexAttribArray(0);
@@ -291,8 +293,6 @@ int main(int argc, char* argv[]) {
 
         // Copy vertex data
         f->glBindVertexArray(VAO);
-        f->glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
-        f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices.data(), GL_STATIC_DRAW);
         f->glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
         window.doneCurrent();
