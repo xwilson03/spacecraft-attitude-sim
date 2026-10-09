@@ -75,7 +75,7 @@ Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J) {
     return (-w.cross(J.cwiseProduct(w))).cwiseQuotient(J);
 }
 
-void step(auto& deltaTime, Transform& cube) {
+void step(float deltaTime, Transform& cube) {
 
     // Use scale to approximate inertia
     const Vector3f s = cube.scale;
