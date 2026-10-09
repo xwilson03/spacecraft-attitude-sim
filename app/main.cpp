@@ -69,20 +69,31 @@ public:
     }
 };
 
+// w = angular velocity
+// J = rotational inertia
+Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J) {
+    return (-w.cross(J.cwiseProduct(w))).cwiseQuotient(J);
+}
 
 void step(auto& deltaTime, Transform& cube) {
 
     // Use scale to approximate inertia
     const Vector3f s = cube.scale;
-    const Vector3f inertia (
+    const Vector3f J (
         s.y() * s.y() + s.z() * s.z(),
         s.x() * s.x() + s.z() * s.z(),
         s.x() * s.x() + s.y() * s.y()
     );
 
-    // Update angular velocity
+    // Update angular velocity (RK4 method)
     const Vector3f w = cube.velocity.angular;
-    cube.velocity.angular += deltaTime * (-w.cross(inertia.cwiseProduct(w))).cwiseQuotient(inertia);
+
+    const Vector3f k1 = computeAngAccel(w, J);
+    const Vector3f k2 = computeAngAccel(w + 0.5f * deltaTime * k1, J);
+    const Vector3f k3 = computeAngAccel(w + 0.5f * deltaTime * k2, J);
+    const Vector3f k4 = computeAngAccel(w + deltaTime * k3, J);
+
+    cube.velocity.angular += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
 
     // Update cube orientation
     const float angle = w.norm() * deltaTime;
