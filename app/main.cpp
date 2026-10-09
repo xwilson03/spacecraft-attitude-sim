@@ -70,12 +70,7 @@ public:
 };
 
 
-void step(auto& lastTime, Transform& cube) {
-
-    // Calculate deltaTime
-    const auto currentTime = std::chrono::steady_clock::now();
-    const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
-    lastTime = currentTime;
+void step(auto& deltaTime, Transform& cube) {
 
     // Use scale to approximate inertia
     const Vector3f s = cube.scale;
@@ -316,7 +311,13 @@ int main(int argc, char* argv[]) {
 
     QTimer timer;
     QObject::connect(&timer, &QTimer::timeout, [&]() {
-        step(lastTime, cube);
+        // Calculate deltaTime
+        const auto currentTime = std::chrono::steady_clock::now();
+        const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
+        lastTime = currentTime;
+
+        // Step sim and re-render
+        step(deltaTime, cube);
         window.update();
     });
     timer.start((1.0f / 60.0f) * 1000.0f);
