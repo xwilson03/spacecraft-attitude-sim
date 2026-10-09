@@ -86,14 +86,14 @@ void step(float deltaTime, Transform& cube) {
     );
 
     // Update angular velocity (RK4 method)
-    const Vector3f w = cube.velocity.angular;
+    Vector3f& w = cube.velocity.angular;
 
     const Vector3f k1 = computeAngAccel(w, J);
     const Vector3f k2 = computeAngAccel(w + 0.5f * deltaTime * k1, J);
     const Vector3f k3 = computeAngAccel(w + 0.5f * deltaTime * k2, J);
     const Vector3f k4 = computeAngAccel(w + deltaTime * k3, J);
 
-    cube.velocity.angular += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
+    w += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
 
     // Update cube orientation
     const float angle = w.norm() * deltaTime;
