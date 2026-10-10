@@ -69,13 +69,53 @@ public:
     }
 };
 
+
+class PDController {
+
+    const float kP = 1.0f;
+    const float kD = 0.0f;
+
+    Vector3f lastError = Vector3f::Zero();
+
+public:
+
+    Vector3f computeGoal(const Vector3f& w, const Vector3f& J) {
+        
+        // Sort J
+        std::vector<std::pair<float, size_t>> jSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
+        std::sort(jSorted.begin(), jSorted.end());
+
+        // Zero ang.velocity around non-intermediate axes
+        const size_t idx = jSorted[2].second;
+        const float velocity = w[idx];
+
+        Vector3f goal = Vector3f::Zero();
+        goal(idx) = velocity;
+
+        return goal;
+    }
+
+    Vector3f computeTorque(const Vector3f& w, const Vector3f& goal) {
+        const Vector3f error = goal - w;
+
+        const Vector3f delta = error - lastError;
+        const Vector3f torque = kP * error + kD * delta; 
+        
+        lastError = error;
+        return torque;
+    }
+
+};
+
+
 // w = angular velocity
 // J = rotational inertia
-Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J) {
-    return (-w.cross(J.cwiseProduct(w))).cwiseQuotient(J);
+Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J, const Vector3f& torque) {
+    return (torque - w.cross(J.cwiseProduct(w))).cwiseQuotient(J);
 }
 
-void step(float deltaTime, Transform& cube) {
+
+void step(float deltaTime, Transform& cube, PDController controller) {
 
     // Use scale to approximate inertia
     const Vector3f s = cube.scale;
@@ -85,13 +125,17 @@ void step(float deltaTime, Transform& cube) {
         s.x() * s.x() + s.y() * s.y()
     );
 
-    // Update angular velocity (RK4 method)
     Vector3f& w = cube.velocity.angular;
 
-    const Vector3f k1 = computeAngAccel(w, J);
-    const Vector3f k2 = computeAngAccel(w + 0.5f * deltaTime * k1, J);
-    const Vector3f k3 = computeAngAccel(w + 0.5f * deltaTime * k2, J);
-    const Vector3f k4 = computeAngAccel(w + deltaTime * k3, J);
+    // Calculate desired torque
+    const Vector3f goal = controller.computeGoal(w, J);
+    const Vector3f torque = controller.computeTorque(w, goal); 
+
+    // Update angular velocity (RK4)
+    const Vector3f k1 = computeAngAccel(w, J, torque);
+    const Vector3f k2 = computeAngAccel(w + 0.5f * deltaTime * k1, J, torque);
+    const Vector3f k3 = computeAngAccel(w + 0.5f * deltaTime * k2, J, torque);
+    const Vector3f k4 = computeAngAccel(w + deltaTime * k3, J, torque);
 
     w += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
 
@@ -193,6 +237,7 @@ int main(int argc, char* argv[]) {
 
     const float& pi = std::numbers::pi_v<float>;
     auto lastTime = std::chrono::steady_clock::now();
+    PDController controller;
 
     Transform cube;
     cube.scale = Vector3f(1.0f, 3.0f, 5.0f);
@@ -328,7 +373,7 @@ int main(int argc, char* argv[]) {
         lastTime = currentTime;
 
         // Step sim and re-render
-        step(deltaTime, cube);
+        step(deltaTime, cube, controller);
         window.update();
     });
     timer.start((1.0f / 60.0f) * 1000.0f);
