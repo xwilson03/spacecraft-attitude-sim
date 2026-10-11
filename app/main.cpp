@@ -148,7 +148,7 @@ constexpr T Initializer() noexcept {
     else return T {};
 };
 
-template <typename T>
+template <Controllable T>
 class PDController {
 
 protected:
