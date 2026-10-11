@@ -31,94 +31,122 @@ protected:
 
 class Transform {
 
+protected:
+
+    Vector3f    mPosition = Vector3f::Zero();
+    Quaternionf mRotation = Quaternionf::Identity();
+    Vector3f    mScale    = Vector3f(1.0f, 1.0f, 1.0f);
+
 public:
 
-    Vector3f position    = Vector3f::Zero();
-    Quaternionf rotation = Quaternionf::Identity();
-    const Vector3f scale = Vector3f(1.0f, 1.0f, 1.0f);
-
-    Transform() {};
-
-    Transform(
-        const Vector3f& aPosition,
-        const Vector3f& aRotation,
-        const Vector3f& aScale
-    )
-    : position(aPosition)
-    , rotation(
-        AngleAxisf(aRotation.y(), Vector3f::UnitY())
-      * AngleAxisf(aRotation.x(), Vector3f::UnitX())
-      * AngleAxisf(aRotation.z(), Vector3f::UnitZ())
-    )
-    , scale(aScale)
-    {};
+    const auto& position () const { return mPosition; }
+    const auto& rotation () const { return mRotation; }
+    const auto& scale    () const { return mScale;    }
 
     Affine3f affine() const {
         auto transform = Affine3f::Identity();
-        transform.translate(position);
-        transform.rotate(rotation);
-        transform.scale(scale);
+        transform.translate(mPosition);
+        transform.rotate(mRotation);
+        transform.scale(mScale);
         return transform;
+    }
+
+    void setPosition (const auto& aPosition) { mPosition = aPosition; }
+    void setScale    (const auto& aScale)    { mScale = aScale; }
+
+    void setRotation (const Quaternionf& aRotation) {
+        mRotation = aRotation;
+    }
+
+    void setRotation (const Vector3f& aRotation) {
+        mRotation = (
+            AngleAxisf(aRotation.y(), Vector3f::UnitY())
+          * AngleAxisf(aRotation.x(), Vector3f::UnitX())
+          * AngleAxisf(aRotation.z(), Vector3f::UnitZ())
+        );
     }
 };
 
 
 class Rigidbody : public Transform {
 
+protected:
+
+    Vector3f mAngularVelocity   = Vector3f::Zero();
+    Vector3f mTorque            = Vector3f::Zero();
+    Vector3f mRotationalInertia;
+
+    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) const {
+        const Vector3f L = initialVelocity.cwiseProduct(mRotationalInertia);
+        return (mTorque - initialVelocity.cross(L)).cwiseQuotient(mRotationalInertia);
+    }
+
 public:
 
-    Vector3f angularVelocity = Vector3f::Zero();
-    Vector3f torque = Vector3f::Zero();
-    Vector3f rotationalInertia;
-
-    Rigidbody(
-        const Vector3f& aPosition,
-        const Vector3f& aRotation,
-        const Vector3f& aScale
-    )
-    : Transform(aPosition, aRotation, aScale)
-    , rotationalInertia( // Estimate rotational inertia using scale 
-        scale.y() * scale.y() + scale.z() * scale.z(),
-        scale.x() * scale.x() + scale.z() * scale.z(),
-        scale.x() * scale.x() + scale.y() * scale.y()
+    Rigidbody()
+    : Transform()
+    , mRotationalInertia(
+        mScale.y() * mScale.y() + mScale.z() * mScale.z(),
+        mScale.x() * mScale.x() + mScale.z() * mScale.z(),
+        mScale.x() * mScale.x() + mScale.y() * mScale.y()
     )
     {};
 
-    void step(const float deltaTime) {
+    const auto& angularVelocity   () const { return mAngularVelocity;   }
+    const auto& torque            () const { return mTorque;            }
+    const auto& rotationalInertia () const { return mRotationalInertia; }
 
-        // Update angular velocity (RK4)
-        const Vector3f k1 = computeAngularAcceleration(angularVelocity);
-        const Vector3f k2 = computeAngularAcceleration(angularVelocity + 0.5f * deltaTime * k1);
-        const Vector3f k3 = computeAngularAcceleration(angularVelocity + 0.5f * deltaTime * k2);
-        const Vector3f k4 = computeAngularAcceleration(angularVelocity + deltaTime * k3);
+    void setAngularVelocity   (const auto& aAngularVelocity)   { mAngularVelocity = aAngularVelocity;     }
+    void setTorque            (const auto& aTorque)            { mTorque = aTorque;                       }
+    void setRotationalInertia (const auto& aRotationalInertia) { mRotationalInertia = aRotationalInertia; }
 
-        angularVelocity += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
-        torque.setZero();
-
-        // Update cube orientation
-        const float angle = angularVelocity.norm() * deltaTime;
-        if (angle <= 0.0f) return;
-
-        rotation *= Quaternionf(AngleAxisf(angle, angularVelocity.normalized()));
-        rotation.normalize();
+    void setScale (const auto& aScale) {
+        mScale = aScale;
+        mRotationalInertia = Vector3f(
+            mScale.y() * mScale.y() + mScale.z() * mScale.z(),
+            mScale.x() * mScale.x() + mScale.z() * mScale.z(),
+            mScale.x() * mScale.x() + mScale.y() * mScale.y()
+        );
     }
 
-private:
-    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) const {
-        const Vector3f L = initialVelocity.cwiseProduct(rotationalInertia);
-        return (torque - initialVelocity.cross(L)).cwiseQuotient(rotationalInertia);
+    void step (const float deltaTime) {
+
+        // Update angular velocity (RK4)
+        const Vector3f k1 = computeAngularAcceleration(mAngularVelocity);
+        const Vector3f k2 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k1);
+        const Vector3f k3 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k2);
+        const Vector3f k4 = computeAngularAcceleration(mAngularVelocity + deltaTime * k3);
+
+        mAngularVelocity += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
+        mTorque.setZero();
+
+        // Update cube orientation
+        const float angle = mAngularVelocity.norm() * deltaTime;
+        if (angle <= 0.0f) return;
+
+        mRotation *= Quaternionf(AngleAxisf(angle, mAngularVelocity.normalized()));
+        mRotation.normalize();
     }
 };
 
 
 class PDController {
 
-    const float kP = 1.0f;
-    const float kD = 0.0f;
+protected:
 
-    Vector3f lastError = Vector3f::Zero();
+    float mKP = 1.0f;
+    float mKD = 0.0f;
+
+    Vector3f mLastError = Vector3f::Zero();
 
 public:
+
+    const auto  kP        () const { return mKP; }
+    const auto  kD        () const { return mKD; }
+    const auto& lastError () const { return mLastError; }
+
+    void setKP (const auto aKP) { mKP = aKP; }
+    void setKD (const auto aKD) { mKD = aKD; }
 
     Vector3f computeGoal(const Vector3f& w, const Vector3f& J) {
         
@@ -139,10 +167,10 @@ public:
     Vector3f computeTorque(const Vector3f& w, const Vector3f& goal) {
         const Vector3f error = goal - w;
 
-        const Vector3f delta = error - lastError;
-        const Vector3f torque = kP * error + kD * delta; 
+        const Vector3f delta = error - mLastError;
+        const Vector3f torque = mKP * error + mKD * delta; 
         
-        lastError = error;
+        mLastError = error;
         return torque;
     }
 
@@ -152,10 +180,10 @@ public:
 void step(float deltaTime, Rigidbody& cube, PDController controller) {
 
     // Calculate desired torque
-    const Vector3f goal = controller.computeGoal(cube.angularVelocity, cube.rotationalInertia);
-    const Vector3f torque = controller.computeTorque(cube.angularVelocity, goal); 
+    const Vector3f goal = controller.computeGoal(cube.angularVelocity(), cube.rotationalInertia());
+    const Vector3f torque = controller.computeTorque(cube.angularVelocity(), goal); 
 
-    cube.torque = torque;
+    cube.setTorque(torque);
     cube.step(deltaTime);
 }
 
@@ -253,18 +281,13 @@ int main(int argc, char* argv[]) {
 
     const float& pi = std::numbers::pi_v<float>;
 
-    Rigidbody cube (
-        Vector3f::Zero(),
-        Vector3f::Zero(),
-        Vector3f(1.0f, 3.0f, 5.0f)
-    );
-    cube.angularVelocity = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
+    Rigidbody cube;
+    cube.setScale( Vector3f(1.0f, 3.0f, 5.0f) );
+    cube.setAngularVelocity( Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f );
 
-    const Transform camera(
-        Vector3f(5.0f, 5.0f, 5.0f),
-        Vector3f(-36.0f, 45.0f, 0.0f) * pi / 180.0f,
-        Vector3f(1.0f, 1.0f, 1.0f)
-    );
+    Transform camera;
+    camera.setPosition( Vector3f(5.0f, 5.0f, 5.0f) );
+    camera.setRotation( Vector3f(-36.0f, 45.0f, 0.0f) * pi / 180.0f );
 
 
     // Rendering
