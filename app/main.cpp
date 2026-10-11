@@ -60,7 +60,7 @@ public:
     , scale(aScale)
     {};
 
-    Affine3f transform() const {
+    Affine3f affine() const {
         auto transform = Affine3f::Identity();
         transform.translate(position);
         transform.rotate(rotation);
@@ -253,7 +253,7 @@ int main(int argc, char* argv[]) {
     // Rendering
 
     // View Matrix
-    const Matrix4f view = camera.transform().inverse().matrix();
+    const Matrix4f view = camera.affine().inverse().matrix();
     
     // Projection Matrix
     const float cameraVertFovDeg = 70.0f;
@@ -351,7 +351,7 @@ int main(int argc, char* argv[]) {
         aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
         projection(0, 0) = focalDistance / aspectRatio;
 
-        const Matrix4f& model = cube.transform().matrix();
+        const Matrix4f& model = cube.affine().matrix();
         mvp = projection * view * model;
 
         // Set shader program and update MVP matrix
