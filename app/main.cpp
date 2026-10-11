@@ -105,7 +105,7 @@ public:
 
 private:
     Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) const {
-        const Vector3f L = rotationalInertia.cwiseProduct(initialVelocity);
+        const Vector3f L = initialVelocity.cwiseProduct(rotationalInertia);
         return (torque - initialVelocity.cross(L)).cwiseQuotient(rotationalInertia);
     }
 };
