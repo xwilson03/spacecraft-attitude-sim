@@ -241,9 +241,10 @@ int main(int argc, char* argv[]) {
 
     // State
 
-    const float& pi = std::numbers::pi_v<float>;
     auto lastTime = std::chrono::steady_clock::now();
     PDController controller;
+
+    const float& pi = std::numbers::pi_v<float>;
 
     Rigidbody cube;
     cube.scale = Vector3f(1.0f, 3.0f, 5.0f);
