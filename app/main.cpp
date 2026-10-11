@@ -47,9 +47,9 @@ public:
     Transform() {};
 
     Transform(
-        Vector3f aPosition,
-        Vector3f aRotation,
-        Vector3f aScale
+        const Vector3f& aPosition,
+        const Vector3f& aRotation,
+        const Vector3f& aScale
     )
     : position(aPosition)
     , rotation(
