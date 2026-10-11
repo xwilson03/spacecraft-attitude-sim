@@ -129,7 +129,18 @@ public:
     }
 };
 
+template <typename T>
+concept HasZeroFunc = requires {
+    { T::Zero() } -> std::same_as<T>;
+};
 
+template <typename T>
+constexpr T Initializer() noexcept {
+    if constexpr (HasZeroFunc<T>) return T::Zero();
+    else return T {};
+};
+
+template <typename T>
 class PDController {
 
 protected:
@@ -137,7 +148,7 @@ protected:
     float mKP = 1.0f;
     float mKD = 0.0f;
 
-    Vector3f mLastError = Vector3f::Zero();
+    T mLastError = Initializer<T>();
 
 public:
 
@@ -148,21 +159,23 @@ public:
     void setKP (const auto aKP) { mKP = aKP; }
     void setKD (const auto aKD) { mKD = aKD; }
 
-    Vector3f computeTorque(const Vector3f& w, const Vector3f& goal) {
-        const Vector3f error = goal - w;
+    T computeEffort(const T& current, const T& goal) {
 
-        const Vector3f delta = error - mLastError;
-        const Vector3f torque = mKP * error + mKD * delta; 
-        
+        const auto& error = goal - current;
+        const auto& deltaError = error - mLastError;
         mLastError = error;
-        return torque;
+        
+        return mKP * error + mKD * deltaError;
     }
 
 };
 
 
-void step(float deltaTime, Rigidbody& cube, PDController controller) {
-
+void step(
+    float deltaTime,
+    Rigidbody& cube,
+    PDController<Vector3f> controller
+) {
     // Calculate goal rotation (zero non-intermediate axes)
 
     const auto& J = cube.rotationalInertia();
@@ -174,7 +187,7 @@ void step(float deltaTime, Rigidbody& cube, PDController controller) {
     goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
 
     // Compute effort values
-    const Vector3f torque = controller.computeTorque(cube.angularVelocity(), goal); 
+    const Vector3f torque = controller.computeEffort(cube.angularVelocity(), goal); 
 
     cube.setTorque(torque);
     cube.step(deltaTime);
@@ -270,7 +283,7 @@ int main(int argc, char* argv[]) {
     // State
 
     auto lastTime = std::chrono::steady_clock::now();
-    PDController controller;
+    PDController<Vector3f> controller;
 
     const float& pi = std::numbers::pi_v<float>;
 
