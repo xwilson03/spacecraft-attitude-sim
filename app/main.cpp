@@ -253,7 +253,11 @@ int main(int argc, char* argv[]) {
 
     const float& pi = std::numbers::pi_v<float>;
 
-    Rigidbody cube (Vector3f::Zero(), Vector3f::Zero(), Vector3f(1.0f, 3.0f, 5.0f));
+    Rigidbody cube (
+        Vector3f::Zero(),
+        Vector3f::Zero(),
+        Vector3f(1.0f, 3.0f, 5.0f)
+    );
     cube.angularVelocity = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
 
     const Transform camera(
