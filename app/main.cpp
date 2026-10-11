@@ -135,7 +135,7 @@ concept HasZeroFunc = requires {
 };
 
 template <typename T>
-concept ZeroInitializable = HasZeroFunc<T> || std::is_arithmetic_v<T>;
+concept ZeroInitializable = std::is_arithmetic_v<T> || HasZeroFunc<T>;
 
 template <typename T>
 concept Controllable = ZeroInitializable<T> && requires(T t, float f) {
