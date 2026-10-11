@@ -35,7 +35,7 @@ public:
 
     Vector3f position    = Vector3f::Zero();
     Quaternionf rotation = Quaternionf::Identity();
-    Vector3f scale       = Vector3f(1.0f, 1.0f, 1.0f);
+    const Vector3f scale = Vector3f(1.0f, 1.0f, 1.0f);
 
     Transform() {};
 
@@ -66,13 +66,47 @@ public:
 class Rigidbody : public Transform {
 
 public:
-    class Velocity {
-    public:
-        Vector3f linear  = Vector3f::Zero();
-        Vector3f angular = Vector3f::Zero();
-    };
 
-    Velocity velocity;
+    Vector3f angularVelocity = Vector3f::Zero();
+    Vector3f torque = Vector3f::Zero();
+    Vector3f rotationalInertia;
+
+    Rigidbody(
+        const Vector3f& aPosition,
+        const Vector3f& aRotation,
+        const Vector3f& aScale
+    )
+    : Transform(aPosition, aRotation, aScale)
+    , rotationalInertia( // Estimate rotational inertia using scale 
+        scale.y() * scale.y() + scale.z() * scale.z(),
+        scale.x() * scale.x() + scale.z() * scale.z(),
+        scale.x() * scale.x() + scale.y() * scale.y()
+    )
+    {};
+
+    void step(const float deltaTime) {
+
+        // Update angular velocity (RK4)
+        const Vector3f k1 = computeAngularAcceleration(angularVelocity);
+        const Vector3f k2 = computeAngularAcceleration(angularVelocity + 0.5f * deltaTime * k1);
+        const Vector3f k3 = computeAngularAcceleration(angularVelocity + 0.5f * deltaTime * k2);
+        const Vector3f k4 = computeAngularAcceleration(angularVelocity + deltaTime * k3);
+
+        angularVelocity += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
+        torque.setZero();
+
+        // Update cube orientation
+        const float angle = angularVelocity.norm() * deltaTime;
+        if (angle <= 0.0f) return;
+
+        rotation *= Quaternionf(AngleAxisf(angle, angularVelocity.normalized()));
+        rotation.normalize();
+    }
+
+    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) {
+        const Vector3f L = rotationalInertia.cwiseProduct(initialVelocity);
+        return (torque - initialVelocity.cross(L)).cwiseQuotient(rotationalInertia);
+    }
 };
 
 
@@ -114,42 +148,14 @@ public:
 };
 
 
-// w = angular velocity
-// J = rotational inertia
-Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J, const Vector3f& torque) {
-    return (torque - w.cross(J.cwiseProduct(w))).cwiseQuotient(J);
-}
-
-
 void step(float deltaTime, Rigidbody& cube, PDController controller) {
 
-    // Use scale to approximate inertia
-    const Vector3f s = cube.scale;
-    const Vector3f J (
-        s.y() * s.y() + s.z() * s.z(),
-        s.x() * s.x() + s.z() * s.z(),
-        s.x() * s.x() + s.y() * s.y()
-    );
-
-    Vector3f& w = cube.velocity.angular;
-
     // Calculate desired torque
-    const Vector3f goal = controller.computeGoal(w, J);
-    const Vector3f torque = controller.computeTorque(w, goal); 
+    const Vector3f goal = controller.computeGoal(cube.angularVelocity, cube.rotationalInertia);
+    const Vector3f torque = controller.computeTorque(cube.angularVelocity, goal); 
 
-    // Update angular velocity (RK4)
-    const Vector3f k1 = computeAngAccel(w, J, torque);
-    const Vector3f k2 = computeAngAccel(w + 0.5f * deltaTime * k1, J, torque);
-    const Vector3f k3 = computeAngAccel(w + 0.5f * deltaTime * k2, J, torque);
-    const Vector3f k4 = computeAngAccel(w + deltaTime * k3, J, torque);
-
-    w += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
-
-    // Update cube orientation
-    const float angle = w.norm() * deltaTime;
-    if (angle <= 0.0f) return;
-
-    cube.rotation = (cube.rotation * Quaternionf(AngleAxisf(angle, w.normalized()))).normalized();
+    cube.torque = torque;
+    cube.step(deltaTime);
 }
 
 
@@ -246,9 +252,8 @@ int main(int argc, char* argv[]) {
 
     const float& pi = std::numbers::pi_v<float>;
 
-    Rigidbody cube;
-    cube.scale = Vector3f(1.0f, 3.0f, 5.0f);
-    cube.velocity.angular = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
+    Rigidbody cube (Vector3f::Zero(), Vector3f::Zero(), Vector3f(1.0f, 3.0f, 5.0f));
+    cube.angularVelocity = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
 
     const Transform camera(
         Vector3f(5.0f, 5.0f, 5.0f),
