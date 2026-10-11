@@ -131,15 +131,15 @@ public:
 
 template <typename T>
 concept HasZeroFunc = requires {
-    { T::Zero() } -> std::same_as<T>;
+    { T::Zero() } -> std::convertible_to<T>;
 };
 
 template <typename T>
 concept Controllable = requires(T t, float f) {
-    { t + t } -> std::same_as<T>;
-    { t - t } -> std::same_as<T>;
-    { f * t } -> std::same_as<T>;
-    { t / f } -> std::same_as<T>;
+    { t + t } -> std::convertible_to<T>;
+    { t - t } -> std::convertible_to<T>;
+    { f * t } -> std::convertible_to<T>;
+    { t / f } -> std::convertible_to<T>;
 };
 
 template <typename T>
