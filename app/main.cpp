@@ -33,16 +33,9 @@ class Transform {
 
 public:
 
-    class Velocity {
-    public:
-        Vector3f linear  = Vector3f::Zero();
-        Vector3f angular = Vector3f::Zero();
-    };
-
     Vector3f position    = Vector3f::Zero();
     Quaternionf rotation = Quaternionf::Identity();
     Vector3f scale       = Vector3f(1.0f, 1.0f, 1.0f);
-    Velocity velocity;
 
     Transform() {};
 
@@ -67,6 +60,19 @@ public:
         transform.scale(scale);
         return transform;
     }
+};
+
+
+class Rigidbody : public Transform {
+
+public:
+    class Velocity {
+    public:
+        Vector3f linear  = Vector3f::Zero();
+        Vector3f angular = Vector3f::Zero();
+    };
+
+    Velocity velocity;
 };
 
 
@@ -115,7 +121,7 @@ Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J, const Vector3f& t
 }
 
 
-void step(float deltaTime, Transform& cube, PDController controller) {
+void step(float deltaTime, Rigidbody& cube, PDController controller) {
 
     // Use scale to approximate inertia
     const Vector3f s = cube.scale;
@@ -239,7 +245,7 @@ int main(int argc, char* argv[]) {
     auto lastTime = std::chrono::steady_clock::now();
     PDController controller;
 
-    Transform cube;
+    Rigidbody cube;
     cube.scale = Vector3f(1.0f, 3.0f, 5.0f);
     cube.velocity.angular = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
 
