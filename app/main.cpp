@@ -103,7 +103,8 @@ public:
         rotation.normalize();
     }
 
-    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) {
+private:
+    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) const {
         const Vector3f L = rotationalInertia.cwiseProduct(initialVelocity);
         return (torque - initialVelocity.cross(L)).cwiseQuotient(rotationalInertia);
     }
