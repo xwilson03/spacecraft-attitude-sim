@@ -132,12 +132,21 @@ public:
 
 class PDController {
 
-    const float kP = 1.0f;
-    const float kD = 0.0f;
+protected:
 
-    Vector3f lastError = Vector3f::Zero();
+    float mKP = 1.0f;
+    float mKD = 0.0f;
+
+    Vector3f mLastError = Vector3f::Zero();
 
 public:
+
+    const auto  kP        () const { return mKP; }
+    const auto  kD        () const { return mKD; }
+    const auto& lastError () const { return mLastError; }
+
+    void setKP (const auto aKP) { mKP = aKP; }
+    void setKD (const auto aKD) { mKD = aKD; }
 
     Vector3f computeGoal(const Vector3f& w, const Vector3f& J) {
         
@@ -158,10 +167,10 @@ public:
     Vector3f computeTorque(const Vector3f& w, const Vector3f& goal) {
         const Vector3f error = goal - w;
 
-        const Vector3f delta = error - lastError;
-        const Vector3f torque = kP * error + kD * delta; 
+        const Vector3f delta = error - mLastError;
+        const Vector3f torque = mKP * error + mKD * delta; 
         
-        lastError = error;
+        mLastError = error;
         return torque;
     }
 
