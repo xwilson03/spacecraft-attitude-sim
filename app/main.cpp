@@ -129,7 +129,29 @@ public:
     }
 };
 
+template <typename T>
+concept HasZeroFunc = requires {
+    { T::Zero() } -> std::convertible_to<T>;
+};
 
+template <typename T>
+concept ZeroInitializable = std::is_arithmetic_v<T> || HasZeroFunc<T>;
+
+template <typename T>
+concept Controllable = ZeroInitializable<T> && requires(T t, float f) {
+    { t + t } -> std::convertible_to<T>;
+    { t - t } -> std::convertible_to<T>;
+    { f * t } -> std::convertible_to<T>;
+    { t / f } -> std::convertible_to<T>;
+};
+
+template <ZeroInitializable T>
+constexpr T Initializer() noexcept {
+    if constexpr (HasZeroFunc<T>) return T::Zero();
+    else return T {};
+};
+
+template <Controllable T>
 class PDController {
 
 protected:
@@ -137,7 +159,7 @@ protected:
     float mKP = 1.0f;
     float mKD = 0.0f;
 
-    Vector3f mLastError = Vector3f::Zero();
+    T mLastError = Initializer<T>();
 
 public:
 
@@ -148,40 +170,35 @@ public:
     void setKP (const auto aKP) { mKP = aKP; }
     void setKD (const auto aKD) { mKD = aKD; }
 
-    Vector3f computeGoal(const Vector3f& w, const Vector3f& J) {
-        
-        // Sort J
-        std::vector<std::pair<float, size_t>> jSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
-        std::sort(jSorted.begin(), jSorted.end());
+    T computeEffort(const T& current, const T& goal) {
 
-        // Zero ang.velocity around non-intermediate axes
-        const size_t idx = jSorted[2].second;
-        const float velocity = w[idx];
-
-        Vector3f goal = Vector3f::Zero();
-        goal(idx) = velocity;
-
-        return goal;
-    }
-
-    Vector3f computeTorque(const Vector3f& w, const Vector3f& goal) {
-        const Vector3f error = goal - w;
-
-        const Vector3f delta = error - mLastError;
-        const Vector3f torque = mKP * error + mKD * delta; 
-        
+        const auto& error = goal - current;
+        const auto& deltaError = error - mLastError;
         mLastError = error;
-        return torque;
+        
+        return mKP * error + mKD * deltaError;
     }
 
 };
 
 
-void step(float deltaTime, Rigidbody& cube, PDController controller) {
+void step(
+    float deltaTime,
+    Rigidbody& cube,
+    PDController<Vector3f> controller
+) {
+    // Calculate goal rotation (zero non-intermediate axes)
 
-    // Calculate desired torque
-    const Vector3f goal = controller.computeGoal(cube.angularVelocity(), cube.rotationalInertia());
-    const Vector3f torque = controller.computeTorque(cube.angularVelocity(), goal); 
+    const auto& J = cube.rotationalInertia();
+    std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
+    std::sort(JSorted.begin(), JSorted.end());
+    const size_t intermediateAxis = JSorted[2].second;
+    
+    Vector3f goal = Vector3f::Zero();
+    goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
+
+    // Compute effort values
+    const Vector3f torque = controller.computeEffort(cube.angularVelocity(), goal); 
 
     cube.setTorque(torque);
     cube.step(deltaTime);
@@ -277,7 +294,7 @@ int main(int argc, char* argv[]) {
     // State
 
     auto lastTime = std::chrono::steady_clock::now();
-    PDController controller;
+    PDController<Vector3f> controller;
 
     const float& pi = std::numbers::pi_v<float>;
 
