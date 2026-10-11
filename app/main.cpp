@@ -33,23 +33,16 @@ class Transform {
 
 public:
 
-    class Velocity {
-    public:
-        Vector3f linear  = Vector3f::Zero();
-        Vector3f angular = Vector3f::Zero();
-    };
-
     Vector3f position    = Vector3f::Zero();
     Quaternionf rotation = Quaternionf::Identity();
     Vector3f scale       = Vector3f(1.0f, 1.0f, 1.0f);
-    Velocity velocity;
 
     Transform() {};
 
     Transform(
-        Vector3f aPosition,
-        Vector3f aRotation,
-        Vector3f aScale
+        const Vector3f& aPosition,
+        const Vector3f& aRotation,
+        const Vector3f& aScale
     )
     : position(aPosition)
     , rotation(
@@ -60,13 +53,26 @@ public:
     , scale(aScale)
     {};
 
-    Affine3f transform() const {
+    Affine3f affine() const {
         auto transform = Affine3f::Identity();
         transform.translate(position);
         transform.rotate(rotation);
         transform.scale(scale);
         return transform;
     }
+};
+
+
+class Rigidbody : public Transform {
+
+public:
+    class Velocity {
+    public:
+        Vector3f linear  = Vector3f::Zero();
+        Vector3f angular = Vector3f::Zero();
+    };
+
+    Velocity velocity;
 };
 
 
@@ -115,7 +121,7 @@ Vector3f computeAngAccel(const Vector3f& w, const Vector3f& J, const Vector3f& t
 }
 
 
-void step(float deltaTime, Transform& cube, PDController controller) {
+void step(float deltaTime, Rigidbody& cube, PDController controller) {
 
     // Use scale to approximate inertia
     const Vector3f s = cube.scale;
@@ -235,11 +241,12 @@ int main(int argc, char* argv[]) {
 
     // State
 
-    const float& pi = std::numbers::pi_v<float>;
     auto lastTime = std::chrono::steady_clock::now();
     PDController controller;
 
-    Transform cube;
+    const float& pi = std::numbers::pi_v<float>;
+
+    Rigidbody cube;
     cube.scale = Vector3f(1.0f, 3.0f, 5.0f);
     cube.velocity.angular = Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f;
 
@@ -253,7 +260,7 @@ int main(int argc, char* argv[]) {
     // Rendering
 
     // View Matrix
-    const Matrix4f view = camera.transform().inverse().matrix();
+    const Matrix4f view = camera.affine().inverse().matrix();
     
     // Projection Matrix
     const float cameraVertFovDeg = 70.0f;
@@ -351,7 +358,7 @@ int main(int argc, char* argv[]) {
         aspectRatio = static_cast<float>(window.width()) / static_cast<float>(window.height());
         projection(0, 0) = focalDistance / aspectRatio;
 
-        const Matrix4f& model = cube.transform().matrix();
+        const Matrix4f& model = cube.affine().matrix();
         mvp = projection * view * model;
 
         // Set shader program and update MVP matrix
