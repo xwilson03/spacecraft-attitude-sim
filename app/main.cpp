@@ -170,13 +170,13 @@ public:
     void setKP (const auto aKP) { mKP = aKP; }
     void setKD (const auto aKD) { mKD = aKD; }
 
-    T computeEffort(const T& current, const T& goal) {
+    T computeEffort(const T& current, const T& goal, const float deltaTime) {
 
         const auto& error = goal - current;
         const auto& deltaError = error - mLastError;
         mLastError = error;
         
-        return mKP * error + mKD * deltaError;
+        return mKP * error + mKD * (deltaError / deltaTime);
     }
 
 };
@@ -198,7 +198,7 @@ void step(
     goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
 
     // Compute effort values
-    const Vector3f torque = controller.computeEffort(cube.angularVelocity(), goal); 
+    const Vector3f torque = controller.computeEffort(cube.angularVelocity(), goal, deltaTime); 
 
     cube.setTorque(torque);
     cube.step(deltaTime);
