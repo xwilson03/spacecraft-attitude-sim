@@ -135,6 +135,14 @@ concept HasZeroFunc = requires {
 };
 
 template <typename T>
+concept Controllable = requires(T t, float f) {
+    { t + t } -> std::same_as<T>;
+    { t - t } -> std::same_as<T>;
+    { f * t } -> std::same_as<T>;
+    { t / f } -> std::same_as<T>;
+};
+
+template <typename T>
 constexpr T Initializer() noexcept {
     if constexpr (HasZeroFunc<T>) return T::Zero();
     else return T {};
