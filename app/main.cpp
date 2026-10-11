@@ -148,22 +148,6 @@ public:
     void setKP (const auto aKP) { mKP = aKP; }
     void setKD (const auto aKD) { mKD = aKD; }
 
-    Vector3f computeGoal(const Vector3f& w, const Vector3f& J) {
-        
-        // Sort J
-        std::vector<std::pair<float, size_t>> jSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
-        std::sort(jSorted.begin(), jSorted.end());
-
-        // Zero ang.velocity around non-intermediate axes
-        const size_t idx = jSorted[2].second;
-        const float velocity = w[idx];
-
-        Vector3f goal = Vector3f::Zero();
-        goal(idx) = velocity;
-
-        return goal;
-    }
-
     Vector3f computeTorque(const Vector3f& w, const Vector3f& goal) {
         const Vector3f error = goal - w;
 
@@ -179,8 +163,17 @@ public:
 
 void step(float deltaTime, Rigidbody& cube, PDController controller) {
 
-    // Calculate desired torque
-    const Vector3f goal = controller.computeGoal(cube.angularVelocity(), cube.rotationalInertia());
+    // Calculate goal rotation (zero non-intermediate axes)
+
+    const auto& J = cube.rotationalInertia();
+    std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
+    std::sort(JSorted.begin(), JSorted.end());
+    const size_t intermediateAxis = JSorted[2].second;
+    
+    Vector3f goal = Vector3f::Zero();
+    goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
+
+    // Compute effort values
     const Vector3f torque = controller.computeTorque(cube.angularVelocity(), goal); 
 
     cube.setTorque(torque);
