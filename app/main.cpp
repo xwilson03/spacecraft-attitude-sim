@@ -187,8 +187,11 @@ public:
     void setKP (const auto aKP) { mKP = aKP; }
     void setKD (const auto aKD) { mKD = aKD; }
 
-    T computeEffort(const T& current, const T& goal, const float deltaTime) {
-
+    T computeEffort(
+        const T& current,
+        const T& goal,
+        const float deltaTime
+    ) {
         const auto& error = goal - current;
         const auto& deltaError = error - mLastError;
         mLastError = error;
@@ -206,7 +209,7 @@ public:
 
 
 void step(
-    float deltaTime,
+    const float deltaTime,
     Rigidbody& cube,
     PDController<Vector3f> controller
 ) {
