@@ -233,7 +233,7 @@ public:
 
 
 
-void step(
+void step (
     const float deltaTime,
     Rigidbody& cube,
     PDController<Vector3f> controller
