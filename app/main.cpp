@@ -104,6 +104,9 @@ public:
     const auto& angularVelocity   () const { return mAngularVelocity;   }
     const auto& torque            () const { return mTorque;            }
     const auto& rotationalInertia () const { return mRotationalInertia; }
+    const auto& angularMomentum   () const {
+        return mAngularVelocity.cwiseProduct(mRotationalInertia);
+    }
 
     void setAngularVelocity   (const auto& aAngularVelocity)   { mAngularVelocity = aAngularVelocity;     }
     void setTorque            (const auto& aTorque)            { mTorque = aTorque;                       }
