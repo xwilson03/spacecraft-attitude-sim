@@ -208,6 +208,31 @@ public:
 };
 
 
+class ReactionWheels {
+
+    // Constraints
+    float commandPollInterval = 0.0f;
+    float torqueSlewRate = 0.0f;
+    float maxTorque = 0.0f;
+    
+    // State
+    float currentTorque = 0.0f;
+    float currentCommand = 0.0f;
+    float timeToNextPoll = 0.0f;
+    
+    // Members
+    Rigidbody wheels;
+    PDController<Vector3f> controller;
+
+public:
+
+    void step (const float deltaTime) {
+        
+    }
+};
+
+
+
 void step(
     const float deltaTime,
     Rigidbody& cube,
