@@ -211,7 +211,7 @@ public:
 };
 
 
-class ReactionWheels {
+class Actuator {
 
     // Properties
     float mCommandPollInterval = 0.0f;
@@ -223,10 +223,6 @@ class ReactionWheels {
     float mCurrentCommand = 0.0f;
     float mNextCommand = 0.0f;
     float mTimeToNextPoll = 0.0f;
-
-    // Members
-    Rigidbody wheels;
-    PDController<Vector3f> controller;
 
     static float stepResponse (
         const float y1,
@@ -277,6 +273,17 @@ public:
     }
 };
 
+
+class ReactionWheels {
+
+    // Members
+    Rigidbody wheels;
+    PDController<Vector3f> controller;
+    Actuator x;
+    Actuator y;
+    Actuator z;
+
+}
 
 
 void step (
