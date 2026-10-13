@@ -215,7 +215,7 @@ class ReactionWheels {
 
     // Properties
     float mCommandPollInterval = 0.0f;
-    float mTorqueSlewRate = 0.0f;
+    float mTorqueSlewRate = 0.0f; // time-to-63.2% in fractional seconds
     float mMaxTorque = 0.0f;
 
     // State
@@ -228,15 +228,17 @@ class ReactionWheels {
     Rigidbody wheels;
     PDController<Vector3f> controller;
 
-    void stepResponse (
+    float stepResponse (
         const float y1,
         const float y2,
         const float tau,
         const float limit,
         const float deltaTime
     ) {
-        const float weightedAvg = 1.0f - std::expf(-deltaTime / tau);
-        return std::clamp((y2 - y1) * weightedAvg + y1, -limit, limit);
+        const float weightedAvg = 1.0f - std::exp(-deltaTime / tau);
+        float output = (y2 - y1) * weightedAvg + y1;
+        std::clamp(output, -limit, limit);
+        return output;
     }
 
 public:
@@ -258,7 +260,22 @@ public:
     void setTimeToNextPoll      (const auto timeToNextPoll)      { mTimeToNextPoll = timeToNextPoll;           }
 
     void step (const float deltaTime) {
-        
+
+        // ASSUME: physics loop interval is always < 2 * command poll interval, thus only calculate up-to-command and post-command
+
+        // Two part calculation
+        if (mTimeToNextPoll <= deltaTime) {
+            const float t1 = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueSlewRate, mMaxTorque, mTimeToNextPoll);
+            mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueSlewRate, mMaxTorque, deltaTime - mTimeToNextPoll);
+            mTimeToNextPoll += mCommandPollInterval - deltaTime;
+        }
+
+        // One part calculation
+        else {
+            mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueSlewRate, mMaxTorque, mTimeToNextPoll);
+            mTimeToNextPoll -= deltaTime;
+        }
+
     }
 };
 
