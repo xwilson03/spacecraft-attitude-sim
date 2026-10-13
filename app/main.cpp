@@ -215,7 +215,7 @@ class ReactionWheels {
 
     // Properties
     float mCommandPollInterval = 0.0f;
-    float mTorqueSlewRate = 0.0f; // time-to-63.2% in fractional seconds
+    float mTorqueTimeCoeff = 0.0f; // time-to-63.2% in fractional seconds
     float mMaxTorque = 0.0f;
 
     // State
@@ -228,54 +228,52 @@ class ReactionWheels {
     Rigidbody wheels;
     PDController<Vector3f> controller;
 
-    float stepResponse (
+    static float stepResponse (
         const float y1,
         const float y2,
         const float tau,
-        const float limit,
         const float deltaTime
     ) {
+        if (tau <= 0.0f) return y2;
         const float weightedAvg = 1.0f - std::exp(-deltaTime / tau);
-        float output = (y2 - y1) * weightedAvg + y1;
-        std::clamp(output, -limit, limit);
-        return output;
+        return (y2 - y1) * weightedAvg + y1;
     }
 
 public:
 
-    const auto commandPollInterval () { return mCommandPollInterval; }
-    const auto torqueSlewRate      () { return mTorqueSlewRate;      }
-    const auto maxTorque           () { return mMaxTorque;           }
-    const auto currentTorque       () { return mCurrentTorque;       }
-    const auto currentCommand      () { return mCurrentCommand;      }
-    const auto nextCommand         () { return mNextCommand;         }
-    const auto timeToNextPoll      () { return mTimeToNextPoll;      }
+    const auto commandPollInterval () const { return mCommandPollInterval; }
+    const auto torqueTimeCoeff     () const { return mTorqueTimeCoeff;     }
+    const auto maxTorque           () const { return mMaxTorque;           }
+    const auto currentTorque       () const { return mCurrentTorque;       }
+    const auto currentCommand      () const { return mCurrentCommand;      }
+    const auto nextCommand         () const { return mNextCommand;         }
+    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
     
     void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
-    void setTorqueSlewRate      (const auto torqueSlewRate)      { mTorqueSlewRate = torqueSlewRate;           }
+    void setTorqueTimeCoeff     (const auto torqueTimeCoeff)     { mTorqueTimeCoeff = torqueTimeCoeff;         }
     void setMaxTorque           (const auto maxTorque)           { mMaxTorque = maxTorque;                     }
-    void setCurrentTorque       (const auto currentTorque)       { mCurrentTorque = currentTorque;             }
-    void setCurrentCommand      (const auto currentCommand)      { mCurrentCommand = currentCommand;           }
-    void setNextCommand         (const auto nextCommand)         { mNextCommand = nextCommand;                 }
-    void setTimeToNextPoll      (const auto timeToNextPoll)      { mTimeToNextPoll = timeToNextPoll;           }
+
+    void setNextCommand (const auto nextCommand) {
+        mNextCommand = std::clamp(nextCommand, -mMaxTorque, mMaxTorque);        
+    }
 
     void step (const float deltaTime) {
 
-        // ASSUME: physics loop interval is always < 2 * command poll interval, thus only calculate up-to-command and post-command
+        // ASSUME: physics loop interval < command poll interval, thus only one step boundary possible per tick
 
         // Two part calculation
         if (mTimeToNextPoll <= deltaTime) {
-            const float t1 = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueSlewRate, mMaxTorque, mTimeToNextPoll);
-            mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueSlewRate, mMaxTorque, deltaTime - mTimeToNextPoll);
+            const float t1 = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, mTimeToNextPoll);
+            mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
+            mCurrentCommand = mNextCommand;
             mTimeToNextPoll += mCommandPollInterval - deltaTime;
         }
 
         // One part calculation
         else {
-            mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueSlewRate, mMaxTorque, mTimeToNextPoll);
+            mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
             mTimeToNextPoll -= deltaTime;
         }
-
     }
 };
 
