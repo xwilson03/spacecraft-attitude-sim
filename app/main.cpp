@@ -213,21 +213,49 @@ public:
 
 class ReactionWheels {
 
-    // Constraints
-    float commandPollInterval = 0.0f;
-    float torqueSlewRate = 0.0f;
-    float maxTorque = 0.0f;
-    
+    // Properties
+    float mCommandPollInterval = 0.0f;
+    float mTorqueSlewRate = 0.0f;
+    float mMaxTorque = 0.0f;
+
     // State
-    float currentTorque = 0.0f;
-    float currentCommand = 0.0f;
-    float timeToNextPoll = 0.0f;
-    
+    float mCurrentTorque = 0.0f;
+    float mCurrentCommand = 0.0f;
+    float mNextCommand = 0.0f;
+    float mTimeToNextPoll = 0.0f;
+
     // Members
     Rigidbody wheels;
     PDController<Vector3f> controller;
 
+    void stepResponse (
+        const float y1,
+        const float y2,
+        const float tau,
+        const float limit,
+        const float deltaTime
+    ) {
+        const float weightedAvg = 1.0f - std::expf(-deltaTime / tau);
+        return std::clamp((y2 - y1) * weightedAvg + y1, -limit, limit);
+    }
+
 public:
+
+    const auto commandPollInterval () { return mCommandPollInterval; }
+    const auto torqueSlewRate      () { return mTorqueSlewRate;      }
+    const auto maxTorque           () { return mMaxTorque;           }
+    const auto currentTorque       () { return mCurrentTorque;       }
+    const auto currentCommand      () { return mCurrentCommand;      }
+    const auto nextCommand         () { return mNextCommand;         }
+    const auto timeToNextPoll      () { return mTimeToNextPoll;      }
+    
+    void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
+    void setTorqueSlewRate      (const auto torqueSlewRate)      { mTorqueSlewRate = torqueSlewRate;           }
+    void setMaxTorque           (const auto maxTorque)           { mMaxTorque = maxTorque;                     }
+    void setCurrentTorque       (const auto currentTorque)       { mCurrentTorque = currentTorque;             }
+    void setCurrentCommand      (const auto currentCommand)      { mCurrentCommand = currentCommand;           }
+    void setNextCommand         (const auto nextCommand)         { mNextCommand = nextCommand;                 }
+    void setTimeToNextPoll      (const auto timeToNextPoll)      { mTimeToNextPoll = timeToNextPoll;           }
 
     void step (const float deltaTime) {
         
