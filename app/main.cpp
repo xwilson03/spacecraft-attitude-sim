@@ -356,6 +356,17 @@ public:
         const auto deltaYMomentum = mActuators[1].step();
         const auto deltaZMomentum = mActuators[2].step();
 
+        mWheels.setTorque(
+            mActuators[0].torque(),
+            mActuators[1].torque(),
+            mActuators[2].torque()
+        );
+
+        return Vector3f(
+            deltaXMomentum,
+            deltaYMomentum,
+            deltaZMomentum,
+        );
     }
 };
 
@@ -371,7 +382,7 @@ void step (
     std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
     std::sort(JSorted.begin(), JSorted.end());
     const size_t intermediateAxis = JSorted[2].second;
-    
+
     Vector3f goal = Vector3f::Zero();
     goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
 
