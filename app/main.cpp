@@ -225,14 +225,28 @@ class Actuator {
     float mTimeToNextPoll = 0.0f;
 
     static float stepResponse (
-        const float y1,
-        const float y2,
+        const float initialValue,
+        const float goalValue,
         const float tau,
         const float deltaTime
     ) {
-        if (tau <= 0.0f) return y2;
-        const float weightedAvg = 1.0f - std::exp(-deltaTime / tau);
-        return (y2 - y1) * weightedAvg + y1;
+        if (tau <= 0.0f) return goalValue;
+
+        const float goalWeight = -std::expm1(-deltaTime / tau);
+        return (goalValue - initialValue) * goalWeight + initialValue;
+    }
+
+    static float computeDeltaMomentum (
+        const float initialTorque,
+        const float goalTorque,
+        const float tau,
+        const float deltaTime
+    ) {
+        if (tau <= 0.0f) return goalTorque * deltaTime;
+
+        // definite integral of stepResponse function from 0 to deltaTime
+        const float goalWeight = -std::expm1(-deltaTime / tau);
+        return goalTorque * deltaTime + tau * (initialTorque - goalTorque) * goalWeight;
     }
 
 public:
@@ -253,23 +267,35 @@ public:
         mNextCommand = std::clamp(nextCommand, -mMaxTorque, mMaxTorque);        
     }
 
-    void step (const float deltaTime) {
+    // ASSUME: physics loop interval < command poll interval, thus only one setpoint boundary possible per step
+    float step (const float deltaTime) {
 
-        // ASSUME: physics loop interval < command poll interval, thus only one step boundary possible per tick
+        float deltaMomentum = 0;
 
         // Two part calculation
         if (mTimeToNextPoll <= deltaTime) {
+
+            // calculate delta torque
             const float t1 = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, mTimeToNextPoll);
+
+            const float dM1 = computeDeltaMomentum(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, mTimeToNextPoll);
+            deltaMomentum = dM1 + computeDeltaMomentum(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
+            
             mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
+
             mCurrentCommand = mNextCommand;
             mTimeToNextPoll += mCommandPollInterval - deltaTime;
         }
 
         // One part calculation
         else {
+            deltaMomentum = computeDeltaMomentum(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
             mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
+
             mTimeToNextPoll -= deltaTime;
         }
+
+        return deltaMomentum;
     }
 };
 
