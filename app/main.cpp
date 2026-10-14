@@ -311,9 +311,10 @@ class ReactionWheels {
     float mActuatorMaxTorque = 0.0f;
 
     // State
-    Rigidbody wheels;
-    std::array<Actuator, 3> actuators;
-    std::array<PDController<Vector3f>, 3> controllers;
+    Rigidbody mWheels;
+    std::array<Actuator, 3> mActuators;
+    std::array<PDController<Vector3f>, 3> mControllers;
+    std::array<float, 3> mWheelTorqueSetpoints;
 
 public:
     const auto wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
@@ -325,35 +326,50 @@ public:
 
     void setWheelRotationalInertia (const auto wheelRotationalInertia) {
         mWheelRotationalInertia = wheelRotationalInertia;
-        wheels.setRotationalInertia(wheelRotationalInertia);
+        mWheels.setRotationalInertia(
+            wheelRotationalInertia,
+            wheelRotationalInertia,
+            wheelRotationalInertia
+        );
     }
 
     void setControllerKP (const auto controllerKP) {
         mControllerKP = controllerKP;
-        for (auto& controller : controllers) controller.setKP(controllerKP);
+        for (auto& controller : mControllers) controller.setKP(controllerKP);
     }
 
     void setControllerKD (const auto controllerKD) {
         mControllerKD = controllerKD;
-        for (auto& controller : controllers) controller.setKD(controllerKD);
+        for (auto& controller : mControllers) controller.setKD(controllerKD);
     }
 
     void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
         mActuatorCommandPollInterval = actuatorCommandPollInterval;
-        for (auto& actuator : actuators) actuator.setCommandPollInterval(actuatorCommandPollInterval);
+        for (auto& actuator : mActuators) actuator.setCommandPollInterval(actuatorCommandPollInterval);
     }
 
     void setActuatorTorqueTimeCoeff (const auto actuatorTorqueTimeCoeff) {
         mActuatorTorqueTimeCoeff = actuatorTorqueTimeCoeff;
-        for (auto& actuator : actuators) actuator.setTorqueTimeCoeff(actuatorTorqueTimeCoeff);
+        for (auto& actuator : mActuators) actuator.setTorqueTimeCoeff(actuatorTorqueTimeCoeff);
     }
 
     void setActuatorMaxTorque (const auto actuatorMaxTorque) {
         mActuatorMaxTorque = actuatorMaxTorque;
-        for (auto& actuator : actuators) actuator.setMaxTorque(actuatorMaxTorque);
+        for (auto& actuator : mActuators) actuator.setMaxTorque(actuatorMaxTorque);
     }
 
-    void step (const float deltaTime) {
+    void setWheelTorqueSetpoint (const auto axis, const auto torque) {
+        mWheelTorqueSetpoints[axis] = torque;
+    }
+
+    Vector3f step (const float deltaTime) {
+        mActuators[0].setNextCommand(mWheelTorqueSetpoints[0]);
+        mActuators[1].setNextCommand(mWheelTorqueSetpoints[1]);
+        mActuators[2].setNextCommand(mWheelTorqueSetpoints[2]);
+
+        const auto deltaXMomentum = mActuators[0].step();
+        const auto deltaYMomentum = mActuators[1].step();
+        const auto deltaZMomentum = mActuators[2].step();
 
     }
 };
