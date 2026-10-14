@@ -325,9 +325,11 @@ public:
     void setWheelRotationalInertia (const auto wheelRotationalInertia) {
         mWheelRotationalInertia = wheelRotationalInertia;
         mWheels.setRotationalInertia(
-            wheelRotationalInertia,
-            wheelRotationalInertia,
-            wheelRotationalInertia
+            Vector3f(
+                wheelRotationalInertia,
+                wheelRotationalInertia,
+                wheelRotationalInertia
+            )
         );
     }
 
