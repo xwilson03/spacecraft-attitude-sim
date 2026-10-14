@@ -345,12 +345,12 @@ public:
 
     void setActuatorTorqueTimeCoeff (const auto actuatorTorqueTimeCoeff) {
         mActuatorTorqueTimeCoeff = actuatorTorqueTimeCoeff;
-        for (auto& actuators : actuators) actuator.setTorqueTimeCoeff(actuatorTorqueTimeCoeff);
+        for (auto& actuator : actuators) actuator.setTorqueTimeCoeff(actuatorTorqueTimeCoeff);
     }
 
     void setActuatorMaxTorque (const auto actuatorMaxTorque) {
         mActuatorMaxTorque = actuatorMaxTorque;
-        for (auto& actuator : actuators) actuator.setActuatorMaxTorque(actuatorMaxTorque);
+        for (auto& actuator : actuators) actuator.setMaxTorque(actuatorMaxTorque);
     }
 
     void step (const float deltaTime) {
