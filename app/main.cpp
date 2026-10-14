@@ -355,21 +355,23 @@ public:
         mActuators[1].setNextCommand(mWheelTorqueSetpoints[1]);
         mActuators[2].setNextCommand(mWheelTorqueSetpoints[2]);
 
-        const auto deltaXMomentum = mActuators[0].step();
-        const auto deltaYMomentum = mActuators[1].step();
-        const auto deltaZMomentum = mActuators[2].step();
+        const auto deltaXMomentum = mActuators[0].step(deltaTime);
+        const auto deltaYMomentum = mActuators[1].step(deltaTime);
+        const auto deltaZMomentum = mActuators[2].step(deltaTime);
 
         mWheels.setTorque(
-            mActuators[0].torque(),
-            mActuators[1].torque(),
-            mActuators[2].torque()
+            Vector3f (
+                mActuators[0].currentTorque(),
+                mActuators[1].currentTorque(),
+                mActuators[2].currentTorque()
+            )
         );
 
-        return Vector3f(
+        return Vector3f {
             deltaXMomentum,
             deltaYMomentum,
             deltaZMomentum,
-        );
+        };
     }
 };
 
@@ -377,7 +379,8 @@ public:
 void step (
     const float deltaTime,
     Rigidbody& cube,
-    PDController<Vector3f> controller
+    PDController<Vector3f> controller,
+    ReactionWheels& wheels
 ) {
     // Calculate goal rotation (zero non-intermediate axes)
 
@@ -390,9 +393,14 @@ void step (
     goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
 
     // Compute effort values
-    const Vector3f torque = controller.computeEffort(cube.angularVelocity(), goal, deltaTime); 
+    const Vector3f effort = controller.computeEffort(cube.angularVelocity(), goal, deltaTime); 
 
-    cube.setTorque(torque);
+    wheels.setWheelTorqueSetpoint(0, effort.x());
+    wheels.setWheelTorqueSetpoint(1, effort.y());
+    wheels.setWheelTorqueSetpoint(2, effort.z());
+    const auto deltaWheelsMomentum = wheels.step(deltaTime);
+
+    cube.setAngularMomentum(cube.angularMomentum() - deltaWheelsMomentum);
     cube.step(deltaTime);
 }
 
@@ -487,6 +495,7 @@ int main(int argc, char* argv[]) {
 
     auto lastTime = std::chrono::steady_clock::now();
     PDController<Vector3f> controller;
+    ReactionWheels wheels;
 
     const float& pi = std::numbers::pi_v<float>;
 
@@ -622,7 +631,7 @@ int main(int argc, char* argv[]) {
         lastTime = currentTime;
 
         // Step sim and re-render
-        step(deltaTime, cube, controller);
+        step(deltaTime, cube, controller, wheels);
         window.update();
     });
     timer.start((1.0f / 60.0f) * 1000.0f);
