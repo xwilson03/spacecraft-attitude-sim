@@ -111,6 +111,9 @@ public:
     void setAngularVelocity   (const auto& aAngularVelocity)   { mAngularVelocity = aAngularVelocity;     }
     void setTorque            (const auto& aTorque)            { mTorque = aTorque;                       }
     void setRotationalInertia (const auto& aRotationalInertia) { mRotationalInertia = aRotationalInertia; }
+    void setAngularMomentum   (const auto& aAngularMomentum) {
+        mAngularVelocity = aAngularMomentum.cwiseQuotient(mRotationalInertia);
+    }
 
     void setScale (const auto& aScale) {
         mScale = aScale;
