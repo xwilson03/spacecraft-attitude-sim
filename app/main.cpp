@@ -302,14 +302,61 @@ public:
 
 class ReactionWheels {
 
-    // Members
-    Rigidbody wheels;
-    PDController<Vector3f> controller;
-    Actuator x;
-    Actuator y;
-    Actuator z;
+    // Parameters
+    float mWheelRotationalInertia = 0.0f;
+    float mControllerKP = 1.0f;
+    float mControllerKD = 0.0f;
+    float mActuatorCommandPollInterval = 0.0f;
+    float mActuatorTorqueTimeCoeff = 0.0f; // time-to-63.2% in fractional seconds
+    float mActuatorMaxTorque = 0.0f;
 
-}
+    // State
+    Rigidbody wheels;
+    std::array<Actuator, 3> actuators;
+    std::array<PDController<Vector3f>, 3> controllers;
+
+public:
+    const auto wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
+    const auto controllerKP                () const { return mControllerKP;                }
+    const auto controllerKD                () const { return mControllerKD;                }
+    const auto actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
+    const auto actuatorTorqueTimeCoeff     () const { return mActuatorTorqueTimeCoeff;     }
+    const auto actuatorMaxTorque           () const { return mActuatorMaxTorque;           }
+
+    void setWheelRotationalInertia (const auto wheelRotationalInertia) {
+        mWheelRotationalInertia = wheelRotationalInertia;
+        wheels.setRotationalInertia(wheelRotationalInertia);
+    }
+
+    void setControllerKP (const auto controllerKP) {
+        mControllerKP = controllerKP;
+        for (auto& controller : controllers) controller.setKP(controllerKP);
+    }
+
+    void setControllerKD (const auto controllerKD) {
+        mControllerKD = controllerKD;
+        for (auto& controller : controllers) controller.setKD(controllerKD);
+    }
+
+    void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
+        mActuatorCommandPollInterval = actuatorCommandPollInterval;
+        for (auto& actuator : actuators) actuator.setCommandPollInterval(actuatorCommandPollInterval);
+    }
+
+    void setActuatorTorqueTimeCoeff (const auto actuatorTorqueTimeCoeff) {
+        mActuatorTorqueTimeCoeff = actuatorTorqueTimeCoeff;
+        for (auto& actuators : actuators) actuator.setTorqueTimeCoeff(actuatorTorqueTimeCoeff);
+    }
+
+    void setActuatorMaxTorque (const auto actuatorMaxTorque) {
+        mActuatorMaxTorque = actuatorMaxTorque;
+        for (auto& actuator : actuators) actuator.setActuatorMaxTorque(actuatorMaxTorque);
+    }
+
+    void step (const float deltaTime) {
+
+    }
+};
 
 
 void step (
