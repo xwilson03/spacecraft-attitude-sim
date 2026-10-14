@@ -304,8 +304,6 @@ class ReactionWheels {
 
     // Parameters
     float mWheelRotationalInertia = 0.0f;
-    float mControllerKP = 1.0f;
-    float mControllerKD = 0.0f;
     float mActuatorCommandPollInterval = 0.0f;
     float mActuatorTorqueTimeCoeff = 0.0f; // time-to-63.2% in fractional seconds
     float mActuatorMaxTorque = 0.0f;
@@ -313,13 +311,10 @@ class ReactionWheels {
     // State
     Rigidbody mWheels;
     std::array<Actuator, 3> mActuators;
-    std::array<PDController<Vector3f>, 3> mControllers;
     std::array<float, 3> mWheelTorqueSetpoints;
 
 public:
     const auto wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
-    const auto controllerKP                () const { return mControllerKP;                }
-    const auto controllerKD                () const { return mControllerKD;                }
     const auto actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
     const auto actuatorTorqueTimeCoeff     () const { return mActuatorTorqueTimeCoeff;     }
     const auto actuatorMaxTorque           () const { return mActuatorMaxTorque;           }
@@ -331,16 +326,6 @@ public:
             wheelRotationalInertia,
             wheelRotationalInertia
         );
-    }
-
-    void setControllerKP (const auto controllerKP) {
-        mControllerKP = controllerKP;
-        for (auto& controller : mControllers) controller.setKP(controllerKP);
-    }
-
-    void setControllerKD (const auto controllerKD) {
-        mControllerKD = controllerKD;
-        for (auto& controller : mControllers) controller.setKD(controllerKD);
     }
 
     void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
