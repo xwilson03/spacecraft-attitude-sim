@@ -497,9 +497,13 @@ int main(int argc, char* argv[]) {
 
     auto lastTime = std::chrono::steady_clock::now();
     PDController<Vector3f> controller;
-    ReactionWheels wheels;
 
     const float& pi = std::numbers::pi_v<float>;
+
+    ReactionWheels wheels;
+    wheels.setWheelRotationalInertia(1.0f);
+    wheels.setActuatorMaxTorque(10000000.0f);
+    wheels.setActuatorTorqueTimeCoeff(0.0f);
 
     Rigidbody cube;
     cube.setScale( Vector3f(1.0f, 3.0f, 5.0f) );
