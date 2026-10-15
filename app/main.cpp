@@ -386,6 +386,27 @@ public:
             deltaZMomentum,
         };
     }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
+        return ostream
+            << "Wheel Rotational Inertia: " << instance.wheelRotationalInertia() << "\n"
+            << "Actuator Command Poll Interval: " << instance.actuatorCommandPollInterval() << "\n"
+            << "Actuator Torque Time Coeff: " << instance.actuatorTorqueTimeCoeff() << "\n"
+            << "Actuator Max Torque: " << instance.actuatorMaxTorque() << "\n"
+            << "Wheels: " << "\n"
+            << instance.mWheels
+            << "Actuators: " << "\n"
+            << "X: " << "\n"
+            << instance.mActuators[0]
+            << "Y: " << "\n"
+            << instance.mActuators[1]
+            << "Z: " << "\n"
+            << instance.mActuators[2]
+            << "Wheel Torque Setpoints: ["
+                << instance.mWheelTorqueSetpoints[0] << ", "
+                << instance.mWheelTorqueSetpoints[1] << ", "
+                << instance.mWheelTorqueSetpoints[2] << "]\n";
+    }
 };
 
 
