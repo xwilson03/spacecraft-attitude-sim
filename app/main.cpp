@@ -179,7 +179,7 @@ class PDController {
 
 protected:
 
-    float mKP = 1.0f;
+    float mKP = 0.0f;
     float mKD = 0.0f;
 
     T mLastError = Initializer<T>();
@@ -496,9 +496,11 @@ int main(int argc, char* argv[]) {
     // State
 
     auto lastTime = std::chrono::steady_clock::now();
-    PDController<Vector3f> controller;
-
     const float& pi = std::numbers::pi_v<float>;
+
+    PDController<Vector3f> controller;
+    controller.setKP(1.0f);
+    controller.setKD(0.1f);
 
     ReactionWheels wheels;
     wheels.setWheelRotationalInertia(1.0f);
