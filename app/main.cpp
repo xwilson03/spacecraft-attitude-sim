@@ -4,6 +4,8 @@
 #include <iostream>
 #include <numbers>
 
+#define EIGEN_DEFAULT_IO_FORMAT Eigen::IOFormat(4, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]")
+
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <QApplication>
@@ -64,6 +66,13 @@ public:
           * AngleAxisf(aRotation.x(), Vector3f::UnitX())
           * AngleAxisf(aRotation.z(), Vector3f::UnitZ())
         );
+    }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const Transform& instance) {
+        return ostream
+            << "Position: " << instance.position() << "\n"
+            << "Rotation: " << instance.rotation().coeffs() << "\n"
+            << "Scale: " << instance.scale() << "\n";
     }
 };
 
@@ -127,6 +136,14 @@ public:
         mRotation *= Quaternionf(AngleAxisf(angle, mAngularVelocity.normalized()));
         mRotation.normalize();
     }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const Rigidbody& instance) {
+        return ostream
+            << static_cast<const Transform&>(instance)
+            << "Angular Velocity: " << instance.angularVelocity() << "\n"
+            << "Torque: " << instance.torque() << "\n"
+            << "Rotational Inertia: " << instance.rotationalInertia() << "\n";
+    }
 };
 
 template <typename T>
@@ -179,6 +196,12 @@ public:
         return mKP * error + mKD * (deltaError / deltaTime);
     }
 
+    friend std::ostream& operator<< (std::ostream& ostream, const PDController& instance) {
+        return ostream
+            << "kP: " << instance.kP() << "\n"
+            << "kD: " << instance.kD() << "\n"
+            << "lastError: " << instance.lastError() << "\n";
+    }
 };
 
 
