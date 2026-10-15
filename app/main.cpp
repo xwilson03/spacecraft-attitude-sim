@@ -300,6 +300,17 @@ public:
 
         return deltaMomentum;
     }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const Actuator& instance) {
+        return ostream
+            << "Current Torque: " << instance.currentTorque() << "\n"
+            << "Current Command: " << instance.currentCommand() << "\n"
+            << "Next Command: " << instance.nextCommand() << "\n"
+            << "Time to Next Poll: " << instance.timeToNextPoll() << "\n"
+            << "Max Torque: " << instance.maxTorque() << "\n"
+            << "Torque Time Coeff: " << instance.torqueTimeCoeff() << "\n"
+            << "Command Poll Interval: " << instance.commandPollInterval() << "\n";
+    }
 };
 
 
