@@ -393,6 +393,10 @@ public:
             << "Actuator Command Poll Interval: " << instance.actuatorCommandPollInterval() << "\n"
             << "Actuator Torque Time Coeff: " << instance.actuatorTorqueTimeCoeff() << "\n"
             << "Actuator Max Torque: " << instance.actuatorMaxTorque() << "\n"
+            << "Wheel Torque Setpoints: ["
+                << instance.mWheelTorqueSetpoints[0] << ", "
+                << instance.mWheelTorqueSetpoints[1] << ", "
+                << instance.mWheelTorqueSetpoints[2] << "]\n"
             << "Wheels: " << "\n"
             << instance.mWheels
             << "Actuators: " << "\n"
@@ -401,11 +405,7 @@ public:
             << "Y: " << "\n"
             << instance.mActuators[1]
             << "Z: " << "\n"
-            << instance.mActuators[2]
-            << "Wheel Torque Setpoints: ["
-                << instance.mWheelTorqueSetpoints[0] << ", "
-                << instance.mWheelTorqueSetpoints[1] << ", "
-                << instance.mWheelTorqueSetpoints[2] << "]\n";
+            << instance.mActuators[2];
     }
 };
 
