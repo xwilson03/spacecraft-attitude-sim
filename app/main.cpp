@@ -538,7 +538,7 @@ int main(int argc, char* argv[]) {
 
     ReactionWheels wheels;
     wheels.setWheelRotationalInertia(1.0f);
-    wheels.setActuatorMaxTorque(10000000.0f);
+    wheels.setActuatorMaxTorque(1000.0f);
     wheels.setActuatorTorqueTimeCoeff(0.0f);
     wheels.setActuatorCommandPollInterval(0.1f);
 
