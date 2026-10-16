@@ -300,7 +300,7 @@ class ReactionWheels {
     float mActuatorMaxTorque = 0.0f;
 
     // State
-    Rigidbody mWheels;
+    Rigidbody mRigidbody;
     std::array<Actuator, 3> mActuators;
     std::array<float, 3> mWheelTorqueSetpoints;
 
@@ -309,13 +309,13 @@ public:
     const auto  actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
     const auto  actuatorTorqueTimeCoeff     () const { return mActuatorTorqueTimeCoeff;     }
     const auto  actuatorMaxTorque           () const { return mActuatorMaxTorque;           }
-    const auto& rigidbody                   () const { return mWheels;                      }
+    const auto& rigidbody                   () const { return mRigidbody;                   }
     const auto& actuators                   () const { return mActuators;                   }
     const auto& wheelTorqueSetpoints        () const { return mWheelTorqueSetpoints;        }
 
     void setWheelRotationalInertia (const auto wheelRotationalInertia) {
         mWheelRotationalInertia = wheelRotationalInertia;
-        mWheels.setRotationalInertia(
+        mRigidbody.setRotationalInertia(
             Vector3f(
                 wheelRotationalInertia,
                 wheelRotationalInertia,
@@ -353,7 +353,7 @@ public:
         mActuators[1].step(deltaTime);
         mActuators[2].step(deltaTime);
 
-        mWheels.setTorque(
+        mRigidbody.setTorque(
             Vector3f (
                 mActuators[0].currentTorque(),
                 mActuators[1].currentTorque(),
@@ -361,7 +361,7 @@ public:
             )
         );
 
-        mWheels.step(deltaTime);
+        mRigidbody.step(deltaTime);
     }
 
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
@@ -374,8 +374,8 @@ public:
                 << instance.mWheelTorqueSetpoints[0] << ", "
                 << instance.mWheelTorqueSetpoints[1] << ", "
                 << instance.mWheelTorqueSetpoints[2] << "]\n"
-            << "Wheels: " << "\n"
-            << instance.mWheels
+            << "Rigidbody: " << "\n"
+            << instance.mRigidbody
             << "Actuators: " << "\n"
             << "X: " << "\n"
             << instance.mActuators[0]
