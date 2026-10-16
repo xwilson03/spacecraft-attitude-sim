@@ -239,19 +239,6 @@ class Actuator {
         return (goalValue - initialValue) * goalWeight + initialValue;
     }
 
-    static float computeDeltaMomentum (
-        const float initialTorque,
-        const float goalTorque,
-        const float tau,
-        const float deltaTime
-    ) {
-        if (tau <= 0.0f) return goalTorque * deltaTime;
-
-        // definite integral of stepResponse function from 0 to deltaTime
-        const float goalWeight = -std::expm1(-deltaTime / tau);
-        return goalTorque * deltaTime + tau * (initialTorque - goalTorque) * goalWeight;
-    }
-
 public:
 
     const auto commandPollInterval () const { return mCommandPollInterval; }
@@ -271,19 +258,13 @@ public:
     }
 
     // ASSUME: physics loop interval < command poll interval, thus only one setpoint boundary possible per step
-    float step (const float deltaTime) {
-
-        float deltaMomentum = 0;
+    void step (const float deltaTime) {
 
         // Two part calculation
         if (mTimeToNextPoll <= deltaTime) {
 
-            // calculate delta torque
+            // Calculate delta torque
             const float t1 = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, mTimeToNextPoll);
-
-            const float dM1 = computeDeltaMomentum(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, mTimeToNextPoll);
-            deltaMomentum = dM1 + computeDeltaMomentum(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
-            
             mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
 
             mCurrentCommand = mNextCommand;
@@ -292,13 +273,9 @@ public:
 
         // One part calculation
         else {
-            deltaMomentum = computeDeltaMomentum(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
             mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
-
             mTimeToNextPoll -= deltaTime;
         }
-
-        return deltaMomentum;
     }
 
     friend std::ostream& operator<< (std::ostream& ostream, const Actuator& instance) {
@@ -363,14 +340,15 @@ public:
         mWheelTorqueSetpoints[axis] = torque;
     }
 
-    Vector3f step (const float deltaTime) {
+    void step (const float deltaTime) {
+
         mActuators[0].setNextCommand(mWheelTorqueSetpoints[0]);
         mActuators[1].setNextCommand(mWheelTorqueSetpoints[1]);
         mActuators[2].setNextCommand(mWheelTorqueSetpoints[2]);
 
-        const auto deltaXMomentum = mActuators[0].step(deltaTime);
-        const auto deltaYMomentum = mActuators[1].step(deltaTime);
-        const auto deltaZMomentum = mActuators[2].step(deltaTime);
+        mActuators[0].step(deltaTime);
+        mActuators[1].step(deltaTime);
+        mActuators[2].step(deltaTime);
 
         mWheels.setTorque(
             Vector3f (
@@ -381,12 +359,6 @@ public:
         );
 
         mWheels.step(deltaTime);
-
-        return Vector3f {
-            deltaXMomentum,
-            deltaYMomentum,
-            deltaZMomentum,
-        };
     }
 
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
@@ -434,7 +406,7 @@ void step (
     wheels.setWheelTorqueSetpoint(0, effort.x());
     wheels.setWheelTorqueSetpoint(1, effort.y());
     wheels.setWheelTorqueSetpoint(2, effort.z());
-    const auto deltaWheelsMomentum = wheels.step(deltaTime);
+    wheels.step(deltaTime);
 
     cube.setAngularMomentum(cube.angularMomentum() + deltaWheelsMomentum);
     cube.step(deltaTime);
