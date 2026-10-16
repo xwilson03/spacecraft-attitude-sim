@@ -409,9 +409,12 @@ void step (
     wheels.setWheelTorqueSetpoint(0, effort.x());
     wheels.setWheelTorqueSetpoint(1, effort.y());
     wheels.setWheelTorqueSetpoint(2, effort.z());
-    wheels.step(deltaTime);
 
-    cube.setAngularMomentum(cube.angularMomentum() + deltaWheelsMomentum);
+    const auto wheelInitialMomentum = wheels.rigidbody().angularMomentum();
+    wheels.step(deltaTime);
+    const auto wheelDeltaMomentum = wheels.rigidbody().angularMomentum() - wheelInitialMomentum;
+
+    cube.setAngularMomentum(cube.angularMomentum() + wheelDeltaMomentum);
     cube.step(deltaTime);
 }
 
