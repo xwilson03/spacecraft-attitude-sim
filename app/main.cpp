@@ -414,7 +414,7 @@ void step (
     wheels.step(deltaTime);
     const auto wheelDeltaMomentum = wheels.rigidbody().angularMomentum() - wheelInitialMomentum;
 
-    cube.setAngularMomentum(cube.angularMomentum() + wheelDeltaMomentum);
+    cube.setAngularMomentum(cube.angularMomentum() - wheelDeltaMomentum);
     cube.step(deltaTime);
 }
 
