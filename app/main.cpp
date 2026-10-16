@@ -305,10 +305,13 @@ class ReactionWheels {
     std::array<float, 3> mWheelTorqueSetpoints;
 
 public:
-    const auto wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
-    const auto actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
-    const auto actuatorTorqueTimeCoeff     () const { return mActuatorTorqueTimeCoeff;     }
-    const auto actuatorMaxTorque           () const { return mActuatorMaxTorque;           }
+    const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
+    const auto  actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
+    const auto  actuatorTorqueTimeCoeff     () const { return mActuatorTorqueTimeCoeff;     }
+    const auto  actuatorMaxTorque           () const { return mActuatorMaxTorque;           }
+    const auto& rigidbody                   () const { return mWheels;                      }
+    const auto& actuators                   () const { return mActuators;                   }
+    const auto& wheelTorqueSetpoints        () const { return mWheelTorqueSetpoints;        }
 
     void setWheelRotationalInertia (const auto wheelRotationalInertia) {
         mWheelRotationalInertia = wheelRotationalInertia;
