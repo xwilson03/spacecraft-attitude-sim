@@ -380,6 +380,8 @@ public:
             )
         );
 
+        mWheels.step(deltaTime);
+
         return Vector3f {
             deltaXMomentum,
             deltaYMomentum,
