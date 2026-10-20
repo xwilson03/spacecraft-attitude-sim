@@ -516,8 +516,8 @@ int main(int argc, char* argv[]) {
 
     ReactionWheels wheels;
     wheels.setWheelRotationalInertia(1.0f);
-    wheels.setActuatorMaxTorque(1000.0f);
-    wheels.setActuatorTorqueTimeCoeff(0.0f);
+    wheels.setActuatorMaxTorque(100.0f);
+    wheels.setActuatorTorqueTimeCoeff(1.0f);
     wheels.setActuatorCommandPollInterval(0.1f);
 
     Rigidbody cube;
