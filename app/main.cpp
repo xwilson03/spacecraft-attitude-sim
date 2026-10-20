@@ -268,14 +268,15 @@ public:
             mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
 
             mCurrentCommand = mNextCommand;
-            mTimeToNextPoll += mCommandPollInterval - deltaTime;
+            mTimeToNextPoll += mCommandPollInterval;
         }
 
         // One part calculation
         else {
             mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
-            mTimeToNextPoll -= deltaTime;
         }
+
+        mTimeToNextPoll -= deltaTime;
     }
 
     friend std::ostream& operator<< (std::ostream& ostream, const Actuator& instance) {
