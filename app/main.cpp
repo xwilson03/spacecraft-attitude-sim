@@ -390,33 +390,35 @@ public:
 
 void step (
     const float deltaTime,
-    Rigidbody& cube,
+    Rigidbody& craft,
     PDController<Vector3f> controller,
     ReactionWheels& wheels
 ) {
-    // Calculate goal rotation (zero non-intermediate axes)
-
-    const auto& J = cube.rotationalInertia();
+    // Find intermediate axis
+    const auto& J = craft.rotationalInertia();
     std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
     std::sort(JSorted.begin(), JSorted.end());
     const size_t intermediateAxis = JSorted[1].second;
 
+    // Calculate goal rotation (zero non-intermediate axes)
     Vector3f goal = Vector3f::Zero();
-    goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
+    goal(intermediateAxis) = craft.angularVelocity()[intermediateAxis];
 
     // Compute effort values
-    const Vector3f effort = controller.computeEffort(cube.angularVelocity(), goal, deltaTime); 
+    const Vector3f effort = controller.computeEffort(craft.angularVelocity(), goal, deltaTime); 
 
+    // Update reaction wheel setpoints
     wheels.setWheelTorqueSetpoint(0, effort.x());
     wheels.setWheelTorqueSetpoint(1, effort.y());
     wheels.setWheelTorqueSetpoint(2, effort.z());
 
+    // Apply setpoints and update craft ang. momentum
     const auto wheelInitialMomentum = wheels.rigidbody().angularMomentum();
     wheels.step(deltaTime);
     const Vector3f wheelDeltaMomentum = wheels.rigidbody().angularMomentum() - wheelInitialMomentum;
+    craft.setAngularMomentum(craft.angularMomentum() - wheelDeltaMomentum);
 
-    cube.setAngularMomentum(cube.angularMomentum() - wheelDeltaMomentum);
-    cube.step(deltaTime);
+    craft.step(deltaTime);
 }
 
 
