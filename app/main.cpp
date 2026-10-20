@@ -398,7 +398,7 @@ void step (
     const auto& J = cube.rotationalInertia();
     std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
     std::sort(JSorted.begin(), JSorted.end());
-    const size_t intermediateAxis = JSorted[2].second;
+    const size_t intermediateAxis = JSorted[1].second;
 
     Vector3f goal = Vector3f::Zero();
     goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
