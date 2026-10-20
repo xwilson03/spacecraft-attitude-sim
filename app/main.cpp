@@ -388,11 +388,62 @@ public:
 };
 
 
+class Magnetorquers {
+
+    // Parameters
+    float mCommandPollInterval = 0.0f;
+    float mMaxDipoleMagnitude = 0.0f;
+
+    // State
+    float mTimeToNextPoll = 0.0f;
+    std::array<float, 3> mCurrentCommands;
+    std::array<float, 3> mNextCommands;
+    std::array<float, 3> mDipoleMagnitudes;
+
+public:
+    const auto  commandPollInterval () const { return mCommandPollInterval; }
+    const auto  maxDipoleMagnitude  () const { return mMaxDipoleMagnitude;  }
+    const auto  timeToNextPoll      () const { return mTimeToNextPoll;      }
+    const auto& currentCommands     () const { return mCurrentCommands;     }
+    const auto& nextCommands        () const { return mNextCommands;        }
+    const auto& dipoleMagnitudes    () const { return mDipoleMagnitudes;    }
+
+    void setCommandPollInterval (const auto aCommandPollInterval) { mCommandPollInterval = aCommandPollInterval; }
+    void setMaxDipoleMagnitude  (const auto aMaxDipoleMagnitude)  { mMaxDipoleMagnitude = aMaxDipoleMagnitude;   }
+
+    void setNextCommands (const auto aAxis, const auto aMagnitude) {
+        mNextCommands[aAxis] = std::clamp(aMagnitude, -mMaxDipoleMagnitude, mMaxDipoleMagnitude);
+    }
+
+    void step (const float deltaTime) {
+
+        if (mTimeToNextPoll <= deltaTime) {
+            mCurrentCommands = mNextCommands;
+            mDipoleMagnitudes = mCurrentCommands;
+            mTimeToNextPoll += mCommandPollInterval;
+        }
+
+        mTimeToNextPoll -= deltaTime;
+    }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const Magnetorquers& instance) {
+        return ostream
+            << "Command Poll Interval: " << instance.commandPollInterval() << "\n"
+            << "Max Dipole Magnitude: " << instance.maxDipoleMagnitude() << "\n"
+            << "Dipole Magnitudes: ["
+                << instance.mDipoleMagnitudes[0] << ", "
+                << instance.mDipoleMagnitudes[1] << ", "
+                << instance.mDipoleMagnitudes[2] << "]";
+    }
+};
+
+
 void step (
     const float deltaTime,
     Rigidbody& craft,
     PDController<Vector3f> controller,
-    ReactionWheels& wheels
+    ReactionWheels& wheels,
+    Magnetorquers& magTorques
 ) {
     // Find intermediate axis
     const auto& J = craft.rotationalInertia();
@@ -522,6 +573,8 @@ int main(int argc, char* argv[]) {
     wheels.setActuatorMaxTorque(100.0f);
     wheels.setActuatorTorqueTimeCoeff(1.0f);
     wheels.setActuatorCommandPollInterval(0.1f);
+
+    Magnetorquers magtorques;
 
     Rigidbody cube;
     cube.setScale( Vector3f(1.0f, 3.0f, 5.0f) );
@@ -655,7 +708,7 @@ int main(int argc, char* argv[]) {
         lastTime = currentTime;
 
         // Step sim and re-render
-        step(deltaTime, cube, controller, wheels);
+        step(deltaTime, cube, controller, wheels, magtorques);
         window.update();
     });
     timer.start((1.0f / 60.0f) * 1000.0f);
