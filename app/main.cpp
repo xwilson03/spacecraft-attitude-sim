@@ -445,25 +445,25 @@ void step (
     ReactionWheels& wheels,
     Magnetorquers& magTorques
 ) {
-    // Find intermediate axis
+    // Find craft intermediate axis
     const auto& J = craft.rotationalInertia();
     std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
     std::sort(JSorted.begin(), JSorted.end());
     const size_t intermediateAxis = JSorted[1].second;
 
-    // Calculate goal rotation (zero non-intermediate axes)
-    Vector3f goal = Vector3f::Zero();
-    goal(intermediateAxis) = craft.angularVelocity()[intermediateAxis];
+    // Calculate craft goal rotation (zero non-intermediate axes)
+    Vector3f craftGoal = Vector3f::Zero();
+    craftGoal(intermediateAxis) = craft.angularVelocity()[intermediateAxis];
 
-    // Compute effort values
-    const Vector3f effort = controller.computeEffort(craft.angularVelocity(), goal, deltaTime); 
+    // Compute reaction wheel effort values
+    const Vector3f wheelEffort = controller.computeEffort(craft.angularVelocity(), craftGoal, deltaTime); 
 
     // Update reaction wheel setpoints
-    wheels.setWheelTorqueSetpoint(0, effort.x());
-    wheels.setWheelTorqueSetpoint(1, effort.y());
-    wheels.setWheelTorqueSetpoint(2, effort.z());
+    wheels.setWheelTorqueSetpoint(0, wheelEffort.x());
+    wheels.setWheelTorqueSetpoint(1, wheelEffort.y());
+    wheels.setWheelTorqueSetpoint(2, wheelEffort.z());
 
-    // Apply setpoints and update craft ang. momentum
+    // Apply wheel setpoints and update craft ang. momentum
     const auto wheelInitialMomentum = wheels.rigidbody().angularMomentum();
     wheels.step(deltaTime);
     const Vector3f wheelDeltaMomentum = wheels.rigidbody().angularMomentum() - wheelInitialMomentum;
