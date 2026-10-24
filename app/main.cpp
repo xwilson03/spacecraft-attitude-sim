@@ -218,62 +218,51 @@ class Actuator {
 
     // Properties
     float mCommandPollInterval = 0.0f;
-    float mTorqueTimeCoeff = 0.0f; // time-to-63.2% in fractional seconds
-    float mMaxTorque = 0.0f;
+    float mMaxVoltage = 0.0f;
+    float mMaxCurrent = 0.0f;
+    float mResistance = 0.0f;
+    float mMotorConstant = 0.0f; // Nm/Amp
+    float mInertia = 0.0f;
 
     // State
-    float mCurrentTorque = 0.0f;
-    float mCurrentCommand = 0.0f;
-    float mNextCommand = 0.0f;
+    float mVoltageCommand = 0.0f;
+    float mNextVoltageCommand = 0.0f;
     float mTimeToNextPoll = 0.0f;
-
-    static float stepResponse (
-        const float initialValue,
-        const float goalValue,
-        const float tau,
-        const float deltaTime
-    ) {
-        if (tau <= 0.0f) return goalValue;
-
-        const float goalWeight = -std::expm1(-deltaTime / tau);
-        return (goalValue - initialValue) * goalWeight + initialValue;
-    }
+    float mVoltage = 0.0f;
+    float mCurrent = 0.0f;
 
 public:
 
     const auto commandPollInterval () const { return mCommandPollInterval; }
-    const auto torqueTimeCoeff     () const { return mTorqueTimeCoeff;     }
-    const auto maxTorque           () const { return mMaxTorque;           }
-    const auto currentTorque       () const { return mCurrentTorque;       }
-    const auto currentCommand      () const { return mCurrentCommand;      }
-    const auto nextCommand         () const { return mNextCommand;         }
+    const auto maxVoltage          () const { return mMaxVoltage;          }
+    const auto maxCurrent          () const { return mMaxCurrent;          }
+    const auto resistance          () const { return mResistance;          }
+    const auto motorConstant       () const { return mMotorConstant;       }
+    const auto inertia             () const { return mInertia;             }
+    const auto voltageCommand      () const { return mVoltageCommand;      }
+    const auto nextVoltageCommand  () const { return mNextVoltageCommand;  }
     const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
+    const auto voltage             () const { return mVoltage;             }
+    const auto current             () const { return mCurrent;             }
     
     void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
-    void setTorqueTimeCoeff     (const auto torqueTimeCoeff)     { mTorqueTimeCoeff = torqueTimeCoeff;         }
-    void setMaxTorque           (const auto maxTorque)           { mMaxTorque = maxTorque;                     }
-
-    void setNextCommand (const auto nextCommand) {
-        mNextCommand = std::clamp(nextCommand, -mMaxTorque, mMaxTorque);        
-    }
+    void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
+    void setMaxCurrent          (const auto maxCurrent)          { mMaxCurrent = maxCurrent;                   }
+    void setResistance          (const auto resistance)          { mResistance = resistance;                   }
+    void setMotorConstant       (const auto motorConstant)       { mMotorConstant = motorConstant;             }
+    void setInertia             (const auto inertia)             { mInertia = inertia;                         }
+    void setNextVoltageCommand  (const auto nextVoltageCommand)  { mNextVoltageCommand = nextVoltageCommand;   }
 
     // ASSUME: physics loop interval < command poll interval, thus only one setpoint boundary possible per step
     void step (const float deltaTime) {
 
         // Two part calculation
         if (mTimeToNextPoll <= deltaTime) {
-
-            // Calculate delta torque
-            const float t1 = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, mTimeToNextPoll);
-            mCurrentTorque = stepResponse(t1, mNextCommand, mTorqueTimeCoeff, deltaTime - mTimeToNextPoll);
-
-            mCurrentCommand = mNextCommand;
             mTimeToNextPoll += mCommandPollInterval;
         }
 
         // One part calculation
         else {
-            mCurrentTorque = stepResponse(mCurrentTorque, mCurrentCommand, mTorqueTimeCoeff, deltaTime);
         }
 
         mTimeToNextPoll -= deltaTime;
@@ -281,13 +270,17 @@ public:
 
     friend std::ostream& operator<< (std::ostream& ostream, const Actuator& instance) {
         return ostream
-            << "Current Torque: " << instance.currentTorque() << "\n"
-            << "Current Command: " << instance.currentCommand() << "\n"
-            << "Next Command: " << instance.nextCommand() << "\n"
-            << "Time to Next Poll: " << instance.timeToNextPoll() << "\n"
-            << "Max Torque: " << instance.maxTorque() << "\n"
-            << "Torque Time Coeff: " << instance.torqueTimeCoeff() << "\n"
-            << "Command Poll Interval: " << instance.commandPollInterval() << "\n";
+            << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
+            << "Max Voltage: " << instance.mMaxVoltage << "\n"
+            << "Max Current: " << instance.mMaxCurrent << "\n"
+            << "Resistance: " << instance.mResistance << "\n"
+            << "Motor Constant: " << instance.mMotorConstant << "\n"
+            << "Inertia: " << instance.mInertia << "\n"
+            << "Voltage Command: " << instance.mVoltageCommand << "\n"
+            << "Next Voltage Command: " << instance.mNextVoltageCommand << "\n"
+            << "Time To Next Poll: " << instance.mTimeToNextPoll << "\n"
+            << "Voltage: " << instance.mVoltage << "\n"
+            << "Current: " << instance.mCurrent;
     }
 };
 
@@ -297,22 +290,26 @@ class ReactionWheels {
     // Parameters
     float mWheelRotationalInertia = 0.0f;
     float mActuatorCommandPollInterval = 0.0f;
-    float mActuatorTorqueTimeCoeff = 0.0f; // time-to-63.2% in fractional seconds
-    float mActuatorMaxTorque = 0.0f;
+    float mActuatorMaxVoltage = 0.0f;
+    float mActuatorMaxCurrent = 0.0f;
+    float mActuatorResistance = 0.0f;
+    float mActuatorMotorConstant = 0.0f; // Nm/Amp
 
     // State
     Rigidbody mRigidbody;
     std::array<Actuator, 3> mActuators;
-    std::array<float, 3> mWheelTorqueSetpoints;
+    std::array<float, 3> mActuatorVoltageSetpoints;
 
 public:
     const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
     const auto  actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
-    const auto  actuatorTorqueTimeCoeff     () const { return mActuatorTorqueTimeCoeff;     }
-    const auto  actuatorMaxTorque           () const { return mActuatorMaxTorque;           }
+    const auto  actuatorMaxVoltage          () const { return mActuatorMaxVoltage;          }
+    const auto  actuatorMaxCurrent          () const { return mActuatorMaxCurrent;          }
+    const auto  actuatorResistance          () const { return mActuatorResistance;          }
+    const auto  actuatorMotorConstant       () const { return mActuatorMotorConstant;       }
     const auto& rigidbody                   () const { return mRigidbody;                   }
     const auto& actuators                   () const { return mActuators;                   }
-    const auto& wheelTorqueSetpoints        () const { return mWheelTorqueSetpoints;        }
+    const auto& actuatorVoltageSetpoints    () const { return mActuatorVoltageSetpoints;    }
 
     void setWheelRotationalInertia (const auto wheelRotationalInertia) {
         mWheelRotationalInertia = wheelRotationalInertia;
@@ -323,6 +320,7 @@ public:
                 wheelRotationalInertia
             )
         );
+        for (auto& actuator : mActuators) actuator.setInertia(mWheelRotationalInertia);
     }
 
     void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
@@ -330,18 +328,28 @@ public:
         for (auto& actuator : mActuators) actuator.setCommandPollInterval(actuatorCommandPollInterval);
     }
 
-    void setActuatorTorqueTimeCoeff (const auto actuatorTorqueTimeCoeff) {
-        mActuatorTorqueTimeCoeff = actuatorTorqueTimeCoeff;
-        for (auto& actuator : mActuators) actuator.setTorqueTimeCoeff(actuatorTorqueTimeCoeff);
+    void setActuatorMaxVoltage (const auto actuatorMaxVoltage) {
+        mActuatorMaxVoltage = actuatorMaxVoltage;
+        for (auto& actuator : mActuators) actuator.setMaxVoltage(actuatorMaxVoltage);
     }
 
-    void setActuatorMaxTorque (const auto actuatorMaxTorque) {
-        mActuatorMaxTorque = actuatorMaxTorque;
-        for (auto& actuator : mActuators) actuator.setMaxTorque(actuatorMaxTorque);
+    void setActuatorMaxCurrent (const auto actuatorMaxCurrent) {
+        mActuatorMaxCurrent = actuatorMaxCurrent;
+        for (auto& actuator : mActuators) actuator.setMaxCurrent(actuatorMaxCurrent);
     }
 
-    void setWheelTorqueSetpoint (const auto axis, const auto torque) {
-        mWheelTorqueSetpoints[axis] = torque;
+    void setActuatorResistance (const auto actuatorResistance) {
+        mActuatorResistance = actuatorResistance;
+        for (auto& actuator : mActuators) actuator.setResistance(actuatorResistance);
+    }
+
+    void setActuatorMotorConstant (const auto actuatorMotorConstant) {
+        mActuatorMotorConstant = actuatorMotorConstant;
+        for (auto& actuator : mActuators) actuator.setMotorConstant(actuatorMotorConstant);
+    }
+
+    void setActuatorVoltageSetpoint (const auto axis, const auto voltage) {
+        mActuatorVoltageSetpoints[axis] = voltage;
     }
 
     void step (const float deltaTime) {
@@ -367,14 +375,13 @@ public:
 
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
         return ostream
-            << "Wheel Rotational Inertia: " << instance.wheelRotationalInertia() << "\n"
-            << "Actuator Command Poll Interval: " << instance.actuatorCommandPollInterval() << "\n"
-            << "Actuator Torque Time Coeff: " << instance.actuatorTorqueTimeCoeff() << "\n"
-            << "Actuator Max Torque: " << instance.actuatorMaxTorque() << "\n"
-            << "Wheel Torque Setpoints: ["
-                << instance.mWheelTorqueSetpoints[0] << ", "
-                << instance.mWheelTorqueSetpoints[1] << ", "
-                << instance.mWheelTorqueSetpoints[2] << "]\n"
+            << "Wheel Rotational Inertia: " << instance.mWheelRotationalInertia << "\n"
+            << "Actuator Command Poll Interval: " << instance.mActuatorCommandPollInterval << "\n"
+            << "Actuator Max Voltage: " << instance.mActuatorMaxVoltage << "\n"
+            << "Actuator Max Current: " << instance.mActuatorMaxCurrent << "\n"
+            << "Actuator Resistance: " << instance.mActuatorResistance << "\n"
+            << "Actuator Motor Constant: " << instance.mActuatorMotorConstant << "\n"
+            << "Actuator Inertia: " << instance.mActuatorInertia << "\n"
             << "Rigidbody: " << "\n"
             << instance.mRigidbody
             << "Actuators: " << "\n"
@@ -383,7 +390,11 @@ public:
             << "Y: " << "\n"
             << instance.mActuators[1]
             << "Z: " << "\n"
-            << instance.mActuators[2];
+            << instance.mActuators[2]
+            << "Actuator Voltage Setpoints: ["
+                << instance.mActuatorVoltageSetpoints[0] << ", "
+                << instance.mActuatorVoltageSetpoints[1] << ", "
+                << instance.mActuatorVoltageSetpoints[2] << "]";
     }
 };
 
