@@ -288,6 +288,7 @@ public:
 class ReactionWheels {
 
     // Parameters
+    float mCommandPollInterval = 0.0f;
     float mWheelRotationalInertia = 0.0f;
     float mActuatorCommandPollInterval = 0.0f;
     float mActuatorMaxVoltage = 0.0f;
@@ -296,20 +297,29 @@ class ReactionWheels {
     float mActuatorMotorConstant = 0.0f; // Nm/Amp
 
     // State
+    float mTimeToNextPoll = 0.0f;
+    Vector3f mAngularMomentumEffort;
+    Vector3f mNextAngularMomentumEffort;
     Rigidbody mRigidbody;
     std::array<Actuator, 3> mActuators;
-    std::array<float, 3> mActuatorVoltageSetpoints;
 
 public:
+    const auto  commandPollInterval         () const { return mCommandPollInterval;         }
     const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
     const auto  actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
     const auto  actuatorMaxVoltage          () const { return mActuatorMaxVoltage;          }
     const auto  actuatorMaxCurrent          () const { return mActuatorMaxCurrent;          }
     const auto  actuatorResistance          () const { return mActuatorResistance;          }
     const auto  actuatorMotorConstant       () const { return mActuatorMotorConstant;       }
+    const auto  timeToNextPoll              () const { return mTimeToNextPoll;              }
+    const auto& angularMomentumEffort       () const { return mAngularMomentumEffort;       }
+    const auto& nextAngularMomentumEffort   () const { return mNextAngularMomentumEffort;   }
     const auto& rigidbody                   () const { return mRigidbody;                   }
     const auto& actuators                   () const { return mActuators;                   }
-    const auto& actuatorVoltageSetpoints    () const { return mActuatorVoltageSetpoints;    }
+
+    void setCommandPollInterval (const auto commandPollInterval) {
+        mCommandPollInterval = commandPollInterval;
+    }
 
     void setWheelRotationalInertia (const auto wheelRotationalInertia) {
         mWheelRotationalInertia = wheelRotationalInertia;
@@ -348,8 +358,8 @@ public:
         for (auto& actuator : mActuators) actuator.setMotorConstant(actuatorMotorConstant);
     }
 
-    void setActuatorVoltageSetpoint (const auto axis, const auto voltage) {
-        mActuatorVoltageSetpoints[axis] = voltage;
+    void setNextAngularMomentumEffort (const auto nextAngularMomentumEffort) {
+        mNextAngularMomentumEffort = nextAngularMomentumEffort;
     }
 
     void step (const float deltaTime) {
@@ -376,6 +386,7 @@ public:
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
         return ostream
             << "Wheel Rotational Inertia: " << instance.mWheelRotationalInertia << "\n"
+            << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
             << "Actuator Command Poll Interval: " << instance.mActuatorCommandPollInterval << "\n"
             << "Actuator Max Voltage: " << instance.mActuatorMaxVoltage << "\n"
             << "Actuator Max Current: " << instance.mActuatorMaxCurrent << "\n"
@@ -390,11 +401,7 @@ public:
             << "Y: " << "\n"
             << instance.mActuators[1]
             << "Z: " << "\n"
-            << instance.mActuators[2]
-            << "Actuator Voltage Setpoints: ["
-                << instance.mActuatorVoltageSetpoints[0] << ", "
-                << instance.mActuatorVoltageSetpoints[1] << ", "
-                << instance.mActuatorVoltageSetpoints[2] << "]";
+            << instance.mActuators[2];
     }
 };
 
@@ -466,9 +473,7 @@ void step (
     craftAngMomentumEffort(intermediateAxis) = 0.0f;
 
     // Update reaction wheel setpoints
-    rwheels.setGoalAngularMomentum(0, craftAngMomentumEffort.x());
-    rwheels.setGoalAngularMomentum(1, craftAngMomentumEffort.y());
-    rwheels.setGoalAngularMomentum(2, craftAngMomentumEffort.z());
+    rwheels.setNextAngularMomentumEffort(craftAngMomentumEffort);
 
     // Apply wheel setpoints and update craft ang momentum
     const auto rwheelInitialMomentum = rwheels.rigidbody().angularMomentum();
