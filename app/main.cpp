@@ -452,9 +452,8 @@ public:
 void step (
     const float deltaTime,
     Rigidbody& craft,
-    PDController<Vector3f> controller,
-    ReactionWheels& wheels,
-    Magnetorquers& magTorques
+    ReactionWheels& rwheels,
+    Magnetorquers& magtorques
 ) {
     // Find craft intermediate axis
     const auto& J = craft.rotationalInertia();
@@ -462,23 +461,20 @@ void step (
     std::sort(JSorted.begin(), JSorted.end());
     const size_t intermediateAxis = JSorted[1].second;
 
-    // Calculate craft goal rotation (zero non-intermediate axes)
-    Vector3f craftGoal = Vector3f::Zero();
-    craftGoal(intermediateAxis) = craft.angularVelocity()[intermediateAxis];
-
-    // Compute reaction wheel effort values
-    const Vector3f wheelEffort = controller.computeEffort(craft.angularVelocity(), craftGoal, deltaTime); 
+    // Calculate craft ang momentum effort (goal is to zero non-intermediate axes)
+    Vector3f craftAngMomentumEffort = -craft.angularMomentum();
+    craftAngMomentumEffort(intermediateAxis) = 0.0f;
 
     // Update reaction wheel setpoints
-    wheels.setWheelTorqueSetpoint(0, wheelEffort.x());
-    wheels.setWheelTorqueSetpoint(1, wheelEffort.y());
-    wheels.setWheelTorqueSetpoint(2, wheelEffort.z());
+    rwheels.setGoalAngularMomentum(0, craftAngMomentumEffort.x());
+    rwheels.setGoalAngularMomentum(1, craftAngMomentumEffort.y());
+    rwheels.setGoalAngularMomentum(2, craftAngMomentumEffort.z());
 
-    // Apply wheel setpoints and update craft ang. momentum
-    const auto wheelInitialMomentum = wheels.rigidbody().angularMomentum();
-    wheels.step(deltaTime);
-    const Vector3f wheelDeltaMomentum = wheels.rigidbody().angularMomentum() - wheelInitialMomentum;
-    craft.setAngularMomentum(craft.angularMomentum() - wheelDeltaMomentum);
+    // Apply wheel setpoints and update craft ang momentum
+    const auto rwheelInitialMomentum = rwheels.rigidbody().angularMomentum();
+    rwheels.step(deltaTime);
+    const Vector3f rwheelDeltaMomentum = rwheels.rigidbody().angularMomentum() - rwheelInitialMomentum;
+    craft.setAngularMomentum(craft.angularMomentum() - rwheelDeltaMomentum);
 
     craft.step(deltaTime);
 }
