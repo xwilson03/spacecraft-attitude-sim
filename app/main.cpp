@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <numbers>
@@ -222,14 +223,11 @@ class Actuator {
     float mMaxCurrent = 0.0f;
     float mResistance = 0.0f;
     float mMotorConstant = 0.0f; // Nm/Amp
-    float mInertia = 0.0f;
 
     // State
-    float mVoltageCommand = 0.0f;
-    float mNextVoltageCommand = 0.0f;
-    float mTimeToNextPoll = 0.0f;
     float mVoltage = 0.0f;
-    float mCurrent = 0.0f;
+    float mNextVoltage= 0.0f;
+    float mTimeToNextPoll = 0.0f;
 
 public:
 
@@ -238,23 +236,46 @@ public:
     const auto maxCurrent          () const { return mMaxCurrent;          }
     const auto resistance          () const { return mResistance;          }
     const auto motorConstant       () const { return mMotorConstant;       }
-    const auto inertia             () const { return mInertia;             }
-    const auto voltageCommand      () const { return mVoltageCommand;      }
-    const auto nextVoltageCommand  () const { return mNextVoltageCommand;  }
-    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
     const auto voltage             () const { return mVoltage;             }
-    const auto current             () const { return mCurrent;             }
-    
+    const auto nextVoltage         () const { return mNextVoltage;         }
+    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
+
+    const auto maxSpeed () const { return mMaxVoltage / mMotorConstant; }
+
     void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
     void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
     void setMaxCurrent          (const auto maxCurrent)          { mMaxCurrent = maxCurrent;                   }
     void setResistance          (const auto resistance)          { mResistance = resistance;                   }
     void setMotorConstant       (const auto motorConstant)       { mMotorConstant = motorConstant;             }
-    void setInertia             (const auto inertia)             { mInertia = inertia;                         }
-    void setNextVoltageCommand  (const auto nextVoltageCommand)  { mNextVoltageCommand = nextVoltageCommand;   }
 
-    // ASSUME: physics loop interval < command poll interval, thus only one setpoint boundary possible per step
-    void step (const float deltaTime) {
+    void setNextVoltage (const auto nextVoltage) {
+        mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
+    }
+
+private:
+    float approachSpeed (
+            const float startSpeed,
+            const float targetSpeed,
+            const float deltaTime,
+            const float timeConstant,
+            const float maxAcceleration
+    ) {
+        const auto error = targetSpeed - startSpeed;
+        const auto acceleration = (maxSpeed() - startSpeed
+        
+    }
+
+public:
+    float step (
+        const float deltaTime,
+        const float angularVelocity,
+        const float inertia
+    ) {
+
+        // ASSUME: physics loop interval < command poll interval, thus only one setpoint boundary possible per step
+        if (deltaTime > mCommandPollInterval) std::abort();
+
+        const float timeConstant = (mResistance * inertia) / (mMotorConstant * mMotorConstant);
 
         // Two part calculation
         if (mTimeToNextPoll <= deltaTime) {
@@ -275,12 +296,9 @@ public:
             << "Max Current: " << instance.mMaxCurrent << "\n"
             << "Resistance: " << instance.mResistance << "\n"
             << "Motor Constant: " << instance.mMotorConstant << "\n"
-            << "Inertia: " << instance.mInertia << "\n"
-            << "Voltage Command: " << instance.mVoltageCommand << "\n"
-            << "Next Voltage Command: " << instance.mNextVoltageCommand << "\n"
-            << "Time To Next Poll: " << instance.mTimeToNextPoll << "\n"
             << "Voltage: " << instance.mVoltage << "\n"
-            << "Current: " << instance.mCurrent;
+            << "Next Voltage: " << instance.mNextVoltage << "\n"
+            << "Time To Next Poll: " << instance.mTimeToNextPoll;
     }
 };
 
@@ -330,7 +348,6 @@ public:
                 wheelRotationalInertia
             )
         );
-        for (auto& actuator : mActuators) actuator.setInertia(mWheelRotationalInertia);
     }
 
     void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
@@ -364,19 +381,19 @@ public:
 
     void step (const float deltaTime) {
 
-        mActuators[0].setNextCommand(mWheelTorqueSetpoints[0]);
-        mActuators[1].setNextCommand(mWheelTorqueSetpoints[1]);
-        mActuators[2].setNextCommand(mWheelTorqueSetpoints[2]);
+        if (deltaTime > mCommandPollInterval) std::abort();
 
-        mActuators[0].step(deltaTime);
-        mActuators[1].step(deltaTime);
-        mActuators[2].step(deltaTime);
+        if (
+
+
+        const auto angularVelocity = mRigidbody.angularVelocity();
+        const auto rotationalInertia = mRigidbody.rotationalInertia();
 
         mRigidbody.setTorque(
             Vector3f (
-                mActuators[0].currentTorque(),
-                mActuators[1].currentTorque(),
-                mActuators[2].currentTorque()
+                mActuators[0].step(deltaTime, angularVelocity.x(), rotationalInertia.x()),
+                mActuators[1].step(deltaTime, angularVelocity.y(), rotationalInertia.y()),
+                mActuators[2].step(deltaTime, angularVelocity.z(), rotationalInertia.z())
             )
         );
 
@@ -395,7 +412,6 @@ public:
             << "Actuator Max Current: " << instance.mActuatorMaxCurrent << "\n"
             << "Actuator Resistance: " << instance.mActuatorResistance << "\n"
             << "Actuator Motor Constant: " << instance.mActuatorMotorConstant << "\n"
-            << "Actuator Inertia: " << instance.mActuatorInertia << "\n"
             << "Rigidbody: " << "\n"
             << instance.mRigidbody
             << "Actuators: " << "\n"
