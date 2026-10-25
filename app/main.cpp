@@ -202,7 +202,17 @@ public:
         const auto& error = goal - current;
         const auto& deltaError = error - mLastError;
         mLastError = error;
-        
+
+        return mKP * error + mKD * (deltaError / deltaTime);
+    }
+
+    T computeEffort(
+        const T& error,
+        const float deltaTime
+    ) {
+        const auto& deltaError = error - mLastError;
+        mLastError = error;
+
         return mKP * error + mKD * (deltaError / deltaTime);
     }
 
@@ -316,10 +326,11 @@ class ReactionWheels {
 
     // State
     float mTimeToNextPoll = 0.0f;
-    Vector3f mAngularMomentumEffort;
-    Vector3f mNextAngularMomentumEffort;
+    Vector3f mAngularMomentumError;
+    Vector3f mNextAngularMomentumError;
     Rigidbody mRigidbody;
     std::array<Actuator, 3> mActuators;
+    PDController<Vector3f> mActuatorController;
 
 public:
     const auto  commandPollInterval         () const { return mCommandPollInterval;         }
@@ -330,10 +341,11 @@ public:
     const auto  actuatorResistance          () const { return mActuatorResistance;          }
     const auto  actuatorMotorConstant       () const { return mActuatorMotorConstant;       }
     const auto  timeToNextPoll              () const { return mTimeToNextPoll;              }
-    const auto& angularMomentumEffort       () const { return mAngularMomentumEffort;       }
-    const auto& nextAngularMomentumEffort   () const { return mNextAngularMomentumEffort;   }
+    const auto& angularMomentumError        () const { return mAngularMomentumError;        }
+    const auto& nextAngularMomentumError    () const { return mNextAngularMomentumError;    }
     const auto& rigidbody                   () const { return mRigidbody;                   }
     const auto& actuators                   () const { return mActuators;                   }
+    const auto& actuatorController          () const { return mActuatorController;          }
 
     void setCommandPollInterval (const auto commandPollInterval) {
         mCommandPollInterval = commandPollInterval;
@@ -375,29 +387,44 @@ public:
         for (auto& actuator : mActuators) actuator.setMotorConstant(actuatorMotorConstant);
     }
 
-    void setNextAngularMomentumEffort (const auto nextAngularMomentumEffort) {
-        mNextAngularMomentumEffort = nextAngularMomentumEffort;
+    void setNextAngularMomentumError (const auto nextAngularMomentumError) {
+        mNextAngularMomentumError = nextAngularMomentumError;
     }
 
+private:
+    void substep(const float deltaTime) {
+            const Vector3f angVelError = mAngularMomentumError.cwiseQuotient(mRigidbody.rotationalInertia());
+            const auto actuatorEffort = mActuatorController.computeEffort(angVelError, deltaTime);
+
+            mActuators[0].setNextVoltage(actuatorEffort.x());
+            mActuators[1].setNextVoltage(actuatorEffort.y());
+            mActuators[2].setNextVoltage(actuatorEffort.z());
+
+            const auto w = mRigidbody.angularVelocity();
+            const auto J = mRigidbody.rotationalInertia();
+
+            mRigidbody.setTorque(
+                Vector3f (
+                    mActuators[0].step(deltaTime, w.x(), J.x()),
+                    mActuators[1].step(deltaTime, w.y(), J.y()),
+                    mActuators[2].step(deltaTime, w.z(), J.z())
+                )
+            );
+
+            mRigidbody.step(deltaTime);
+    }
+
+public:
     void step (const float deltaTime) {
 
         if (deltaTime > mCommandPollInterval) std::abort();
 
-        if (
-
-
-        const auto angularVelocity = mRigidbody.angularVelocity();
-        const auto rotationalInertia = mRigidbody.rotationalInertia();
-
-        mRigidbody.setTorque(
-            Vector3f (
-                mActuators[0].step(deltaTime, angularVelocity.x(), rotationalInertia.x()),
-                mActuators[1].step(deltaTime, angularVelocity.y(), rotationalInertia.y()),
-                mActuators[2].step(deltaTime, angularVelocity.z(), rotationalInertia.z())
-            )
-        );
-
-        mRigidbody.step(deltaTime);
+        if (deltaTime < mTimeToNextPoll) substep(deltaTime);
+        else {
+            substep(mTimeToNextPoll);
+            mAngularMomentumError = mNextAngularMomentumError;
+            substep(deltaTime - mTimeToNextPoll);
+        }
     }
 
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
@@ -405,8 +432,8 @@ public:
             << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
             << "Rotational Inertia: " << instance.mRotationalInertia << "\n"
             << "Time to Next Poll: " << instance.mTimeToNextPoll << "\n"
-            << "Angular Momentum Effort: " << instance.mAngularMomentumEffort << "\n"
-            << "Next Angular Momentum Effort: " << instance.mNextAngularMomentumEffort << "\n"
+            << "Angular Momentum Error: " << instance.mAngularMomentumError << "\n"
+            << "Next Angular Momentum Error: " << instance.mNextAngularMomentumError << "\n"
             << "Actuator Command Poll Interval: " << instance.mActuatorCommandPollInterval << "\n"
             << "Actuator Max Voltage: " << instance.mActuatorMaxVoltage << "\n"
             << "Actuator Max Current: " << instance.mActuatorMaxCurrent << "\n"
@@ -487,12 +514,12 @@ void step (
     std::sort(JSorted.begin(), JSorted.end());
     const size_t intermediateAxis = JSorted[1].second;
 
-    // Calculate craft ang momentum effort (goal is to zero non-intermediate axes)
-    Vector3f craftAngMomentumEffort = -craft.angularMomentum();
-    craftAngMomentumEffort(intermediateAxis) = 0.0f;
+    // Calculate craft ang momentum error (goal is to zero non-intermediate axes)
+    Vector3f craftAngMomentumError = -craft.angularMomentum();
+    craftAngMomentumError(intermediateAxis) = 0.0f;
 
     // Update reaction wheel setpoints
-    rwheels.setNextAngularMomentumEffort(craftAngMomentumEffort);
+    rwheels.setNextAngularMomentumError(craftAngMomentumError);
 
     // Apply wheel setpoints and update craft ang momentum
     const auto rwheelInitialMomentum = rwheels.rigidbody().angularMomentum();
