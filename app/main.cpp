@@ -419,12 +419,19 @@ public:
 
         if (deltaTime > mCommandPollInterval) std::abort();
 
-        if (deltaTime < mTimeToNextPoll) substep(deltaTime);
+        if (deltaTime <= mTimeToNextPoll) {
+            substep(deltaTime);
+        }
+
         else {
             substep(mTimeToNextPoll);
             mAngularMomentumError = mNextAngularMomentumError;
             substep(deltaTime - mTimeToNextPoll);
+
+            mTimeToNextPoll += mCommandPollInterval;
         }
+        
+        mTimeToNextPoll -= deltaTime;
     }
 
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
