@@ -289,7 +289,7 @@ class ReactionWheels {
 
     // Parameters
     float mCommandPollInterval = 0.0f;
-    float mWheelRotationalInertia = 0.0f;
+    float mRotationalInertia = 0.0f;
     float mActuatorCommandPollInterval = 0.0f;
     float mActuatorMaxVoltage = 0.0f;
     float mActuatorMaxCurrent = 0.0f;
@@ -305,7 +305,7 @@ class ReactionWheels {
 
 public:
     const auto  commandPollInterval         () const { return mCommandPollInterval;         }
-    const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
+    const auto  rotationalInertia           () const { return mRotationalInertia;           }
     const auto  actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
     const auto  actuatorMaxVoltage          () const { return mActuatorMaxVoltage;          }
     const auto  actuatorMaxCurrent          () const { return mActuatorMaxCurrent;          }
@@ -321,8 +321,8 @@ public:
         mCommandPollInterval = commandPollInterval;
     }
 
-    void setWheelRotationalInertia (const auto wheelRotationalInertia) {
-        mWheelRotationalInertia = wheelRotationalInertia;
+    void setRotationalInertia (const auto wheelRotationalInertia) {
+        mRotationalInertia = wheelRotationalInertia;
         mRigidbody.setRotationalInertia(
             Vector3f(
                 wheelRotationalInertia,
@@ -385,8 +385,11 @@ public:
 
     friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheels& instance) {
         return ostream
-            << "Wheel Rotational Inertia: " << instance.mWheelRotationalInertia << "\n"
             << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
+            << "Rotational Inertia: " << instance.mRotationalInertia << "\n"
+            << "Time to Next Poll: " << instance.mTimeToNextPoll << "\n"
+            << "Angular Momentum Effort: " << instance.mAngularMomentumEffort << "\n"
+            << "Next Angular Momentum Effort: " << instance.mNextAngularMomentumEffort << "\n"
             << "Actuator Command Poll Interval: " << instance.mActuatorCommandPollInterval << "\n"
             << "Actuator Max Voltage: " << instance.mActuatorMaxVoltage << "\n"
             << "Actuator Max Current: " << instance.mActuatorMaxCurrent << "\n"
@@ -581,7 +584,7 @@ int main(int argc, char* argv[]) {
     controller.setKD(0.1f);
 
     ReactionWheels wheels;
-    wheels.setWheelRotationalInertia(1.0f);
+    wheels.setRotationalInertia(1.0f);
     wheels.setActuatorMaxTorque(100.0f);
     wheels.setActuatorTorqueTimeCoeff(1.0f);
     wheels.setActuatorCommandPollInterval(0.1f);
