@@ -1,15 +1,18 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <numbers>
+#include <source_location>
 
 #define EIGEN_DEFAULT_IO_FORMAT Eigen::IOFormat(4, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]")
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QOpenGLWidget>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
@@ -297,7 +300,18 @@ public:
     ) {
 
         if (deltaTime == 0.0f) return 0.0f;
-        if (deltaTime > mCommandPollInterval) std::abort();
+
+        if (deltaTime > mCommandPollInterval) {
+            std::cerr
+                << std::format(
+                    "{}: deltaTime of {} greater than Command Poll Interval of {}.",
+                    std::source_location::current().function_name(),
+                    deltaTime,
+                    mCommandPollInterval
+                )
+            << std::endl;
+            std::abort();
+        }
 
         const float timeConstant = (mResistance * inertia) / (mMotorConstant * mMotorConstant);
         float impulse = 0.0f;
@@ -444,7 +458,17 @@ public:
     void step (const float deltaTime) {
 
         if (deltaTime == 0.0f) return;
-        if (deltaTime > mCommandPollInterval) std::abort();
+        if (deltaTime > mCommandPollInterval) {
+            std::cerr
+                << std::format(
+                    "{}: deltaTime of {} greater than Command Poll Interval of {}.",
+                    std::source_location::current().function_name(),
+                    deltaTime,
+                    mCommandPollInterval
+                )
+            << std::endl;
+            std::abort();
+        }
 
         if (deltaTime <= mTimeToNextPoll) {
             substep(deltaTime);
@@ -800,20 +824,23 @@ int main(int argc, char* argv[]) {
         window.doneCurrent();
     };
 
-    QTimer timer;
-    QObject::connect(&timer, &QTimer::timeout, [&]() {
-        // Calculate deltaTime
-        const auto currentTime = std::chrono::steady_clock::now();
-        const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
-        lastTime = currentTime;
+    QElapsedTimer elapsed;
+    elapsed.start();
 
-        // Step sim and re-render
-        step(deltaTime, cube, controller, wheels, magtorques);
+    QTimer physics;
+    physics.setTimerType(Qt::PreciseTimer);
+    QObject::connect(&physics, &QTimer::timeout, [&]() {
+        const float deltaTime = 1e-3f;
+        step(deltaTime, cube, wheels, magtorques);
+    });
+    physics.start(1);
+
+    QTimer display;
+    QObject::connect(&display, &QTimer::timeout, [&]() {
         window.update();
     });
-    timer.start((1.0f / 60.0f) * 1000.0f);
+    display.start(static_cast<int>(1.0f / 120.0f * 1000.0f));
 
     window.show();
     return app.exec();
-
 }
