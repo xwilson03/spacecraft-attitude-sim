@@ -430,6 +430,14 @@ public:
         mNextAngularMomentumError = angularMomentumError;
     }
 
+    void setActuatorControllerKP (const auto kP) {
+        mActuatorController.setKP(kP);
+    }
+
+    void setActuatorControllerKD (const auto kD) {
+        mActuatorController.setKD(kD);
+    }
+
 private:
     void substep(const float deltaTime) {
 
@@ -685,18 +693,17 @@ int main(int argc, char* argv[]) {
     auto lastTime = std::chrono::steady_clock::now();
     const float& pi = std::numbers::pi_v<float>;
 
-    PDController<Vector3f> controller;
-    controller.setKP(1.0f);
-    controller.setKD(0.1f);
+    ReactionWheels rwheels;
+    rwheels.setRotationalInertia(0.1f);
+    rwheels.setActuatorMaxVoltage(24.0f);
+    rwheels.setActuatorMaxCurrent(5.0f);
+    rwheels.setActuatorResistance(1.0f);
+    rwheels.setActuatorMotorConstant(0.5f);
+    rwheels.setActuatorControllerKP(1.0f);
+    rwheels.setActuatorControllerKD(0.1f);
+    rwheels.setCommandPollInterval(0.2f);
+    rwheels.setActuatorCommandPollInterval(0.1f);
 
-    ReactionWheels wheels;
-    wheels.setRotationalInertia(0.01f);
-    wheels.setActuatorMaxVoltage(24.0f);
-    wheels.setActuatorMaxCurrent(5.0f);
-    wheels.setActuatorResistance(1.0f);
-    wheels.setActuatorMotorConstant(0.05f);
-    wheels.setCommandPollInterval(0.2f);
-    wheels.setActuatorCommandPollInterval(0.1f);
 
     Magnetorquers magtorques;
 
@@ -831,7 +838,7 @@ int main(int argc, char* argv[]) {
     physics.setTimerType(Qt::PreciseTimer);
     QObject::connect(&physics, &QTimer::timeout, [&]() {
         const float deltaTime = 1e-3f;
-        step(deltaTime, cube, wheels, magtorques);
+        step(deltaTime, cube, rwheels, magtorques);
     });
     physics.start(1);
 
