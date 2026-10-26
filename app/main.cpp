@@ -127,6 +127,8 @@ public:
 
     void step (const float deltaTime) {
 
+        if (deltaTime == 0.0f) return;
+
         // Update angular velocity (RK4)
         const Vector3f k1 = computeAngularAcceleration(mAngularVelocity);
         const Vector3f k2 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k1);
@@ -199,6 +201,8 @@ public:
         const T& goal,
         const float deltaTime
     ) {
+        if (deltaTime == 0.0f) return current * 0.0f;
+
         const auto& error = goal - current;
         const auto& deltaError = error - mLastError;
         mLastError = error;
@@ -210,6 +214,8 @@ public:
         const T& error,
         const float deltaTime
     ) {
+        if (deltaTime == 0.0f) return error * 0.0f;
+
         const auto& deltaError = error - mLastError;
         mLastError = error;
 
@@ -290,6 +296,7 @@ public:
         const float inertia
     ) {
 
+        if (deltaTime == 0.0f) return 0.0f;
         if (deltaTime > mCommandPollInterval) std::abort();
 
         const float timeConstant = (mResistance * inertia) / (mMotorConstant * mMotorConstant);
@@ -436,6 +443,7 @@ private:
 public:
     void step (const float deltaTime) {
 
+        if (deltaTime == 0.0f) return;
         if (deltaTime > mCommandPollInterval) std::abort();
 
         if (deltaTime <= mTimeToNextPoll) {
@@ -509,6 +517,8 @@ public:
 
     void step (const float deltaTime) {
 
+        if (deltaTime == 0.0f) return;
+
         if (mTimeToNextPoll <= deltaTime) {
             mCurrentCommands = mNextCommands;
             mDipoleMagnitudes = mCurrentCommands;
@@ -535,6 +545,8 @@ void step (
     ReactionWheels& rwheels,
     Magnetorquers& magtorques
 ) {
+    if (deltaTime == 0.0f) return;
+
     // Find craft intermediate axis
     const auto& J = craft.rotationalInertia();
     std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
