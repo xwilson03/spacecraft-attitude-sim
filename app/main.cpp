@@ -666,9 +666,12 @@ int main(int argc, char* argv[]) {
     controller.setKD(0.1f);
 
     ReactionWheels wheels;
-    wheels.setRotationalInertia(1.0f);
-    wheels.setActuatorMaxTorque(100.0f);
-    wheels.setActuatorTorqueTimeCoeff(1.0f);
+    wheels.setRotationalInertia(0.01f);
+    wheels.setActuatorMaxVoltage(24.0f);
+    wheels.setActuatorMaxCurrent(5.0f);
+    wheels.setActuatorResistance(1.0f);
+    wheels.setActuatorMotorConstant(0.05f);
+    wheels.setCommandPollInterval(0.2f);
     wheels.setActuatorCommandPollInterval(0.1f);
 
     Magnetorquers magtorques;
