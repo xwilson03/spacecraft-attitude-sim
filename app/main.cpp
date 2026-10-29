@@ -284,7 +284,7 @@ private:
 
         const auto error = targetSpeed - startSpeed;
         const auto acceleration = std::clamp(
-            (targetSpeed - startSpeed) * -std::expm1(-deltaTime / timeConstant),
+            error * -std::expm1(-deltaTime / timeConstant),
             -maxAcceleration * deltaTime,
             maxAcceleration * deltaTime
         );
@@ -522,9 +522,9 @@ class Magnetorquers {
 
     // State
     float mTimeToNextPoll = 0.0f;
-    std::array<float, 3> mCurrentCommands;
-    std::array<float, 3> mNextCommands;
-    std::array<float, 3> mDipoleMagnitudes;
+    std::array<float, 3> mCurrentCommands {};
+    std::array<float, 3> mNextCommands {};
+    std::array<float, 3> mDipoleMagnitudes {};
 
 public:
     const auto  commandPollInterval () const { return mCommandPollInterval; }
