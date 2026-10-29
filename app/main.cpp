@@ -359,11 +359,6 @@ class ReactionWheel {
     float mCommandPollInterval = 0.0f;
     float mWheelRotationalInertia = 0.0f;
     unsigned mWheelAxis = 0u;
-    float mActuatorCommandPollInterval = 0.0f;
-    float mActuatorMaxVoltage = 0.0f;
-    float mActuatorMaxCurrent = 0.0f;
-    float mActuatorResistance = 0.0f;
-    float mActuatorMotorConstant = 0.0f; // Nm/Amp
 
     // State
     float mTimeToNextPoll = 0.0f;
@@ -376,11 +371,6 @@ class ReactionWheel {
 public:
     const auto  commandPollInterval         () const { return mCommandPollInterval;         }
     const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
-    const auto  actuatorCommandPollInterval () const { return mActuatorCommandPollInterval; }
-    const auto  actuatorMaxVoltage          () const { return mActuatorMaxVoltage;          }
-    const auto  actuatorMaxCurrent          () const { return mActuatorMaxCurrent;          }
-    const auto  actuatorResistance          () const { return mActuatorResistance;          }
-    const auto  actuatorMotorConstant       () const { return mActuatorMotorConstant;       }
     const auto  timeToNextPoll              () const { return mTimeToNextPoll;              }
     const auto& angularMomentumGoal         () const { return mAngularMomentumGoal;         }
     const auto& nextAngularMomentumError    () const { return mNextAngularMomentumError;    }
@@ -404,27 +394,22 @@ public:
     }
 
     void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
-        mActuatorCommandPollInterval = actuatorCommandPollInterval;
         mActuator.setCommandPollInterval(actuatorCommandPollInterval);
     }
 
     void setActuatorMaxVoltage (const auto actuatorMaxVoltage) {
-        mActuatorMaxVoltage = actuatorMaxVoltage;
         mActuator.setMaxVoltage(actuatorMaxVoltage);
     }
 
     void setActuatorMaxCurrent (const auto actuatorMaxCurrent) {
-        mActuatorMaxCurrent = actuatorMaxCurrent;
         mActuator.setMaxCurrent(actuatorMaxCurrent);
     }
 
     void setActuatorResistance (const auto actuatorResistance) {
-        mActuatorResistance = actuatorResistance;
         mActuator.setResistance(actuatorResistance);
     }
 
     void setActuatorMotorConstant (const auto actuatorMotorConstant) {
-        mActuatorMotorConstant = actuatorMotorConstant;
         mActuator.setMotorConstant(actuatorMotorConstant);
     }
 
@@ -501,11 +486,6 @@ public:
             << "Time to Next Poll: " << instance.mTimeToNextPoll << "\n"
             << "Angular Momentum Goal: " << instance.mAngularMomentumGoal << "\n"
             << "Next Angular Momentum Error: " << instance.mNextAngularMomentumError << "\n"
-            << "Actuator Command Poll Interval: " << instance.mActuatorCommandPollInterval << "\n"
-            << "Actuator Max Voltage: " << instance.mActuatorMaxVoltage << "\n"
-            << "Actuator Max Current: " << instance.mActuatorMaxCurrent << "\n"
-            << "Actuator Resistance: " << instance.mActuatorResistance << "\n"
-            << "Actuator Motor Constant: " << instance.mActuatorMotorConstant << "\n"
             << "Rigidbody: " << "\n"
             << instance.mRigidbody
             << "Actuator: " << "\n"
