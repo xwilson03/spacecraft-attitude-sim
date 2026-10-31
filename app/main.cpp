@@ -90,8 +90,8 @@ protected:
     Vector3f mTorque            = Vector3f::Zero();
     Vector3f mRotationalInertia;
 
-    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) const {
-        const Vector3f L = initialVelocity.cwiseProduct(mRotationalInertia);
+    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity, const Vector3f& internalMomentum) const {
+        const Vector3f L = initialVelocity.cwiseProduct(mRotationalInertia) + internalMomentum;
         return (mTorque - initialVelocity.cross(L)).cwiseQuotient(mRotationalInertia);
     }
 
@@ -129,15 +129,15 @@ public:
         );
     }
 
-    void step (const float deltaTime) {
+    void step (const float deltaTime, const Vector3f internalMomentum = Vector3f::Zero()) {
 
         if (deltaTime == 0.0f) return;
 
         // Update angular velocity (RK4)
-        const Vector3f k1 = computeAngularAcceleration(mAngularVelocity);
-        const Vector3f k2 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k1);
-        const Vector3f k3 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k2);
-        const Vector3f k4 = computeAngularAcceleration(mAngularVelocity + deltaTime * k3);
+        const Vector3f k1 = computeAngularAcceleration(mAngularVelocity, internalMomentum);
+        const Vector3f k2 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k1, internalMomentum);
+        const Vector3f k3 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k2, internalMomentum);
+        const Vector3f k4 = computeAngularAcceleration(mAngularVelocity + deltaTime * k3, internalMomentum);
 
         mAngularVelocity += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
         mTorque.setZero();
@@ -590,7 +590,7 @@ void step (
     const Vector3f rwheelDeltaAngularMomentum = rwheelPostStepAngularMomentum - rwheelPreStepAngularMomentum;
     craft.setAngularMomentum(craft.angularMomentum() + -rwheelDeltaAngularMomentum);
 
-    craft.step(deltaTime);
+    craft.step(deltaTime, rwheelPostStepAngularMomentum);
 }
 
 
