@@ -494,64 +494,116 @@ public:
 };
 
 
-class Magnetorquers {
+class Magnetorquer {
 
-    // Parameters
+    // Properties
     float mCommandPollInterval = 0.0f;
-    float mMaxDipoleMagnitude = 0.0f;
+    float mMaxVoltage = 0.0f;
+    float mResistance = 0.0f;
+    float mInductance = 0.0f;
+    float mDipolePerAmp = 0.0f;
 
     // State
+    float mVoltage = 0.0f;
+    float mCurrent = 0.0f;
+    float mNextVoltage = 0.0f;
     float mTimeToNextPoll = 0.0f;
-    std::array<float, 3> mCurrentCommands {};
-    std::array<float, 3> mNextCommands {};
-    std::array<float, 3> mDipoleMagnitudes {};
 
 public:
-    const auto  commandPollInterval () const { return mCommandPollInterval; }
-    const auto  maxDipoleMagnitude  () const { return mMaxDipoleMagnitude;  }
-    const auto  timeToNextPoll      () const { return mTimeToNextPoll;      }
-    const auto& currentCommands     () const { return mCurrentCommands;     }
-    const auto& nextCommands        () const { return mNextCommands;        }
-    const auto& dipoleMagnitudes    () const { return mDipoleMagnitudes;    }
 
-    void setCommandPollInterval (const auto aCommandPollInterval) { mCommandPollInterval = aCommandPollInterval; }
-    void setMaxDipoleMagnitude  (const auto aMaxDipoleMagnitude)  { mMaxDipoleMagnitude = aMaxDipoleMagnitude;   }
+    const auto commandPollInterval () const { return mCommandPollInterval; }
+    const auto maxVoltage          () const { return mMaxVoltage;          }
+    const auto resistance          () const { return mResistance;          }
+    const auto inductance          () const { return mInductance;          }
+    const auto dipolePerAmp        () const { return mDipolePerAmp;        }
+    const auto voltage             () const { return mVoltage;             }
+    const auto current             () const { return mCurrent;             }
+    const auto nextVoltage         () const { return mNextVoltage;         }
+    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
 
-    void setNextCommands (const auto aAxis, const auto aMagnitude) {
-        mNextCommands[aAxis] = std::clamp(aMagnitude, -mMaxDipoleMagnitude, mMaxDipoleMagnitude);
+    void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
+    void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
+    void setResistance          (const auto resistance)          { mResistance = resistance;                   }
+    void setInductance          (const auto inductance)          { mInductance = inductance;                   }
+    void setDipolePerAmp        (const auto dipolePerAmp)        { mDipolePerAmp = dipolePerAmp;               }
+
+    void setNextVoltage (const auto nextVoltage) {
+        mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
     }
 
-    void step (const float deltaTime) {
+private:
+    float substep (const float deltaTime) {
 
-        if (deltaTime == 0.0f) return;
+        const auto targetCurrent = mVoltage / mResistance;
+        const auto timeConstant = mInductance / mResistance;
 
-        if (mTimeToNextPoll <= deltaTime) {
-            mCurrentCommands = mNextCommands;
-            mDipoleMagnitudes = mCurrentCommands;
-            mTimeToNextPoll += mCommandPollInterval;
+        const auto startCurrent = mCurrent;
+        const auto currentError = targetCurrent - startCurrent;
+        const auto endCurrent = startCurrent + currentError * -std::expm1(-deltaTime / timeConstant);
+        const auto deltaCurrent = endCurrent - startCurrent;
+
+        mCurrent = endCurrent;
+        return startCurrent * deltaTime + deltaCurrent * timeConstant;
+    }
+
+public:
+    float step (const float deltaTime) {
+
+        float charge = 0.0f;
+
+        if (deltaTime == 0.0f) return charge;
+        if (deltaTime > mCommandPollInterval) {
+            std::cerr
+                << std::format(
+                    "{}: deltaTime of {} greater than Command Poll Interval of {}.",
+                    std::source_location::current().function_name(),
+                    deltaTime,
+                    mCommandPollInterval
+                )
+            << std::endl;
+            std::abort();
         }
 
+        if (deltaTime <= mTimeToNextPoll) {
+            charge = substep(deltaTime);
+        }
+
+        else {
+            charge = substep(mTimeToNextPoll);
+            mVoltage = mNextVoltage;
+            charge += substep(deltaTime - mTimeToNextPoll);
+
+            mTimeToNextPoll += mCommandPollInterval;
+        }
+        
         mTimeToNextPoll -= deltaTime;
+        return charge * mDipolePerAmp;
     }
 
-    friend std::ostream& operator<< (std::ostream& ostream, const Magnetorquers& instance) {
+    friend std::ostream& operator<< (std::ostream& ostream, const Magnetorquer& instance) {
         return ostream
-            << "Command Poll Interval: " << instance.commandPollInterval() << "\n"
-            << "Max Dipole Magnitude: " << instance.maxDipoleMagnitude() << "\n"
-            << "Dipole Magnitudes: ["
-                << instance.mDipoleMagnitudes[0] << ", "
-                << instance.mDipoleMagnitudes[1] << ", "
-                << instance.mDipoleMagnitudes[2] << "]";
+            << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
+            << "Max Voltage: " << instance.mMaxVoltage << "\n"
+            << "Resistance: " << instance.mResistance << "\n"
+            << "Inductance: " << instance.mInductance << "\n"
+            << "Dipole per Amp: " << instance.mDipolePerAmp << "\n"
+            << "Voltage: " << instance.mVoltage << "\n"
+            << "Current: " << instance.mCurrent << "\n"
+            << "Next Voltage: " << instance.mNextVoltage << "\n"
+            << "Time To Next Poll: " << instance.mTimeToNextPoll;
     }
 };
 
 void step (
+    const float absoluteTime,
     const float deltaTime,
     Rigidbody& craft,
     ReactionWheel& rwheelX,
     ReactionWheel& rwheelY,
     ReactionWheel& rwheelZ,
-    Magnetorquers& magtorques
+    Magnetorquer& magtorqueX,
+    Magnetorquer& magtorqueY,
+    Magnetorquer& magtorqueZ
 ) {
     if (deltaTime == 0.0f) return;
 
@@ -588,8 +640,23 @@ void step (
     );
 
     const Vector3f rwheelDeltaAngularMomentum = rwheelPostStepAngularMomentum - rwheelPreStepAngularMomentum;
-    craft.setAngularMomentum(craft.angularMomentum() + -rwheelDeltaAngularMomentum);
 
+    const float orbitalRate = 2.0f * M_PI / 5400.0f;           // rad/s, about a 90 minute orbit
+    const Vector3f earthField = 30e-6f * Vector3f(std::cos(orbitalRate * absoluteTime), std::sin(orbitalRate * absoluteTime), 0.0f);
+    const Vector3f earthFieldCraft = craft.rotation().conjugate().matrix() * earthField;
+
+    magtorqueX.setNextVoltage(24.0f);
+    magtorqueY.setNextVoltage(24.0f);
+    magtorqueZ.setNextVoltage(24.0f);
+
+    const Vector3f magtorqueImpulseCraft (
+        magtorqueX.step(deltaTime),
+        magtorqueY.step(deltaTime),
+        magtorqueZ.step(deltaTime)
+    );
+    const Vector3f magtorqueImpulseInertial = magtorqueImpulseCraft.cross(earthFieldCraft);
+
+    craft.setAngularMomentum(craft.angularMomentum() + -rwheelDeltaAngularMomentum + magtorqueImpulseInertial);
     craft.step(deltaTime, rwheelPostStepAngularMomentum);
 }
 
@@ -690,11 +757,11 @@ int main(int argc, char* argv[]) {
     ReactionWheel rwheelZ;
 
     const auto applyWheelConfig = [&](unsigned axis, ReactionWheel& rwheel) {
-        rwheel.setWheelRotationalInertia(axis, 0.1f);
+        rwheel.setWheelRotationalInertia(axis, 0.05f);
         rwheel.setActuatorMaxVoltage(24.0f);
         rwheel.setActuatorMaxCurrent(5.0f);
-        rwheel.setActuatorResistance(1.0f);
-        rwheel.setActuatorMotorConstant(0.5f);
+        rwheel.setActuatorResistance(0.5f);
+        rwheel.setActuatorMotorConstant(0.1f);
         rwheel.setActuatorControllerKP(1.0f);
         rwheel.setActuatorControllerKD(0.0f);
         rwheel.setCommandPollInterval(0.2f);
@@ -705,7 +772,21 @@ int main(int argc, char* argv[]) {
     applyWheelConfig(1, rwheelY);
     applyWheelConfig(2, rwheelZ);
 
-    Magnetorquers magtorques;
+    Magnetorquer magtorqueX;
+    Magnetorquer magtorqueY;
+    Magnetorquer magtorqueZ;
+
+    const auto applyMagtorqueConfig = [&](Magnetorquer& magtorque) {
+        magtorque.setCommandPollInterval(0.1f);
+        magtorque.setMaxVoltage(24.0f);
+        magtorque.setResistance(100.0f);
+        magtorque.setInductance(1.0f);
+        magtorque.setDipolePerAmp(100.0f);
+    };
+
+    applyMagtorqueConfig(magtorqueX);
+    applyMagtorqueConfig(magtorqueY);
+    applyMagtorqueConfig(magtorqueZ);
 
     Rigidbody cube;
     cube.setScale( Vector3f(1.0f, 3.0f, 5.0f) );
@@ -831,6 +912,8 @@ int main(int argc, char* argv[]) {
         window.doneCurrent();
     };
 
+    float absoluteTime = 0.0f;
+
     QElapsedTimer elapsed;
     elapsed.start();
 
@@ -838,7 +921,12 @@ int main(int argc, char* argv[]) {
     physics.setTimerType(Qt::PreciseTimer);
     QObject::connect(&physics, &QTimer::timeout, [&]() {
         const float deltaTime = 1e-3f;
-        step(deltaTime, cube, rwheelX, rwheelY, rwheelZ, magtorques);
+        absoluteTime += deltaTime;
+        step(
+            absoluteTime, deltaTime, cube,
+            rwheelX, rwheelY, rwheelZ,
+            magtorqueX, magtorqueY, magtorqueZ
+        );
     });
     physics.start(1);
 
