@@ -393,6 +393,10 @@ public:
         mRigidbody.setRotationalInertia(J);
     }
 
+    void setNextAngularMomentumError (const auto angularMomentumError) {
+        mNextAngularMomentumError = angularMomentumError;
+    }
+
     void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
         mActuator.setCommandPollInterval(actuatorCommandPollInterval);
     }
@@ -411,10 +415,6 @@ public:
 
     void setActuatorMotorConstant (const auto actuatorMotorConstant) {
         mActuator.setMotorConstant(actuatorMotorConstant);
-    }
-
-    void setNextAngularMomentumError (const auto angularMomentumError) {
-        mNextAngularMomentumError = angularMomentumError;
     }
 
     void setActuatorControllerKP (const auto kP) {
