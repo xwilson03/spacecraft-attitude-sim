@@ -544,7 +544,7 @@ private:
         const auto deltaCurrent = endCurrent - startCurrent;
 
         mCurrent = endCurrent;
-        return startCurrent * deltaTime + deltaCurrent * timeConstant;
+        return targetCurrent * deltaTime - deltaCurrent * timeConstant;
     }
 
 public:
