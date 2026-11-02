@@ -13,6 +13,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Widgets
         Qt6::OpenGLWidgets
         Eigen3::Eigen
+        transform
 )
 
 install(
