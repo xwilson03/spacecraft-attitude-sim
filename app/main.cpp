@@ -1,14 +1,19 @@
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <numbers>
+#include <limits>
+#include <source_location>
 
 #define EIGEN_DEFAULT_IO_FORMAT Eigen::IOFormat(4, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]")
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QOpenGLWidget>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
@@ -85,8 +90,8 @@ protected:
     Vector3f mTorque            = Vector3f::Zero();
     Vector3f mRotationalInertia;
 
-    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity) const {
-        const Vector3f L = initialVelocity.cwiseProduct(mRotationalInertia);
+    Vector3f computeAngularAcceleration(const Vector3f& initialVelocity, const Vector3f& internalMomentum) const {
+        const Vector3f L = initialVelocity.cwiseProduct(mRotationalInertia) + internalMomentum;
         return (mTorque - initialVelocity.cross(L)).cwiseQuotient(mRotationalInertia);
     }
 
@@ -104,10 +109,16 @@ public:
     const auto& angularVelocity   () const { return mAngularVelocity;   }
     const auto& torque            () const { return mTorque;            }
     const auto& rotationalInertia () const { return mRotationalInertia; }
+    const auto  angularMomentum   () const {
+        return Vector3f(mAngularVelocity.cwiseProduct(mRotationalInertia));
+    }
 
     void setAngularVelocity   (const auto& aAngularVelocity)   { mAngularVelocity = aAngularVelocity;     }
     void setTorque            (const auto& aTorque)            { mTorque = aTorque;                       }
     void setRotationalInertia (const auto& aRotationalInertia) { mRotationalInertia = aRotationalInertia; }
+    void setAngularMomentum   (const auto& aAngularMomentum) {
+        mAngularVelocity = aAngularMomentum.cwiseQuotient(mRotationalInertia);
+    }
 
     void setScale (const auto& aScale) {
         mScale = aScale;
@@ -118,13 +129,15 @@ public:
         );
     }
 
-    void step (const float deltaTime) {
+    void step (const float deltaTime, const Vector3f internalMomentum = Vector3f::Zero()) {
+
+        if (deltaTime == 0.0f) return;
 
         // Update angular velocity (RK4)
-        const Vector3f k1 = computeAngularAcceleration(mAngularVelocity);
-        const Vector3f k2 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k1);
-        const Vector3f k3 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k2);
-        const Vector3f k4 = computeAngularAcceleration(mAngularVelocity + deltaTime * k3);
+        const Vector3f k1 = computeAngularAcceleration(mAngularVelocity, internalMomentum);
+        const Vector3f k2 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k1, internalMomentum);
+        const Vector3f k3 = computeAngularAcceleration(mAngularVelocity + 0.5f * deltaTime * k2, internalMomentum);
+        const Vector3f k4 = computeAngularAcceleration(mAngularVelocity + deltaTime * k3, internalMomentum);
 
         mAngularVelocity += deltaTime / 6.0f * (k1 + 2.0f * k2 + 2.0f * k3 + k4);
         mTorque.setZero();
@@ -173,7 +186,7 @@ class PDController {
 
 protected:
 
-    float mKP = 1.0f;
+    float mKP = 0.0f;
     float mKD = 0.0f;
 
     T mLastError = Initializer<T>();
@@ -187,12 +200,29 @@ public:
     void setKP (const auto aKP) { mKP = aKP; }
     void setKD (const auto aKD) { mKD = aKD; }
 
-    T computeEffort(const T& current, const T& goal, const float deltaTime) {
+    T computeEffort(
+        const T& current,
+        const T& goal,
+        const float deltaTime
+    ) {
+        if (deltaTime == 0.0f) return current * 0.0f;
 
         const auto& error = goal - current;
         const auto& deltaError = error - mLastError;
         mLastError = error;
-        
+
+        return mKP * error + mKD * (deltaError / deltaTime);
+    }
+
+    T computeEffort(
+        const T& error,
+        const float deltaTime
+    ) {
+        if (deltaTime == 0.0f) return error * 0.0f;
+
+        const auto& deltaError = error - mLastError;
+        mLastError = error;
+
         return mKP * error + mKD * (deltaError / deltaTime);
     }
 
@@ -205,26 +235,438 @@ public:
 };
 
 
-void step(
-    float deltaTime,
-    Rigidbody& cube,
-    PDController<Vector3f> controller
-) {
-    // Calculate goal rotation (zero non-intermediate axes)
+class Actuator {
 
-    const auto& J = cube.rotationalInertia();
+    // Properties
+    float mCommandPollInterval = 0.0f;
+    float mMaxVoltage = 0.0f;
+    float mMaxCurrent = 0.0f;
+    float mResistance = 0.0f;
+    float mMotorConstant = 0.0f; // Nm/Amp
+
+    // State
+    float mVoltage = 0.0f;
+    float mNextVoltage= 0.0f;
+    float mTimeToNextPoll = 0.0f;
+
+public:
+
+    const auto commandPollInterval () const { return mCommandPollInterval; }
+    const auto maxVoltage          () const { return mMaxVoltage;          }
+    const auto maxCurrent          () const { return mMaxCurrent;          }
+    const auto resistance          () const { return mResistance;          }
+    const auto motorConstant       () const { return mMotorConstant;       }
+    const auto voltage             () const { return mVoltage;             }
+    const auto nextVoltage         () const { return mNextVoltage;         }
+    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
+
+    void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
+    void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
+    void setMaxCurrent          (const auto maxCurrent)          { mMaxCurrent = maxCurrent;                   }
+    void setResistance          (const auto resistance)          { mResistance = resistance;                   }
+    void setMotorConstant       (const auto motorConstant)       { mMotorConstant = motorConstant;             }
+
+    void setNextVoltage (const auto nextVoltage) {
+        mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
+    }
+
+private:
+    float computeImpulse (
+            const float startSpeed,
+            const float inertia,
+            const float deltaTime,
+            const float timeConstant
+    ) const {
+
+        const auto targetSpeed = mVoltage / mMotorConstant;
+        const auto maxTorque = mMotorConstant * mMaxCurrent;
+        const auto maxAcceleration = maxTorque / inertia;
+
+        const auto error = targetSpeed - startSpeed;
+        const auto acceleration = std::clamp(
+            error * -std::expm1(-deltaTime / timeConstant),
+            -maxAcceleration * deltaTime,
+            maxAcceleration * deltaTime
+        );
+
+        return acceleration * inertia;
+    }
+
+public:
+
+    float step (
+        const float deltaTime,
+        const float startSpeed,
+        const float inertia
+    ) {
+
+        if (deltaTime == 0.0f) return 0.0f;
+
+        if (deltaTime > mCommandPollInterval) {
+            std::cerr
+                << std::format(
+                    "{}: deltaTime of {} greater than Command Poll Interval of {}.",
+                    std::source_location::current().function_name(),
+                    deltaTime,
+                    mCommandPollInterval
+                )
+            << std::endl;
+            std::abort();
+        }
+
+        const float timeConstant = (mResistance * inertia) / (mMotorConstant * mMotorConstant);
+        float impulse = 0.0f;
+
+        if (deltaTime <= mTimeToNextPoll) {
+            impulse = computeImpulse(startSpeed, inertia, deltaTime, timeConstant);
+        }
+
+        else {
+            impulse = computeImpulse(startSpeed, inertia, mTimeToNextPoll, timeConstant);
+
+            mVoltage = mNextVoltage;
+            impulse += computeImpulse(
+                startSpeed + impulse / inertia,
+                inertia,
+                deltaTime - mTimeToNextPoll,
+                timeConstant
+            );
+
+            mTimeToNextPoll += mCommandPollInterval;
+        }
+        
+        mTimeToNextPoll -= deltaTime;
+        return impulse;
+    }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const Actuator& instance) {
+        return ostream
+            << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
+            << "Max Voltage: " << instance.mMaxVoltage << "\n"
+            << "Max Current: " << instance.mMaxCurrent << "\n"
+            << "Resistance: " << instance.mResistance << "\n"
+            << "Motor Constant: " << instance.mMotorConstant << "\n"
+            << "Voltage: " << instance.mVoltage << "\n"
+            << "Next Voltage: " << instance.mNextVoltage << "\n"
+            << "Time To Next Poll: " << instance.mTimeToNextPoll;
+    }
+};
+
+
+class ReactionWheel {
+
+    // Parameters
+    float mCommandPollInterval = 0.0f;
+    float mWheelRotationalInertia = 0.0f;
+    unsigned mWheelAxis = 0u;
+
+    // State
+    float mTimeToNextPoll = 0.0f;
+    float mAngularMomentumGoal = 0.0f;
+    float mNextAngularMomentumError = 0.0f;
+    Rigidbody mRigidbody;
+    Actuator mActuator;
+    PDController<float> mActuatorController;
+
+public:
+    const auto  commandPollInterval         () const { return mCommandPollInterval;         }
+    const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
+    const auto  timeToNextPoll              () const { return mTimeToNextPoll;              }
+    const auto& angularMomentumGoal         () const { return mAngularMomentumGoal;         }
+    const auto& nextAngularMomentumError    () const { return mNextAngularMomentumError;    }
+    const auto& rigidbody                   () const { return mRigidbody;                   }
+    const auto& actuator                    () const { return mActuator;                    }
+    const auto& actuatorController          () const { return mActuatorController;          }
+
+    void setCommandPollInterval (const auto commandPollInterval) {
+        mCommandPollInterval = commandPollInterval;
+    }
+
+    void setWheelRotationalInertia (const auto axis, const auto wheelRotationalInertia) {
+        mWheelAxis = axis;
+        mWheelRotationalInertia = wheelRotationalInertia;
+
+        // Using zero breaks division by J, e.g. Rigidbody::computeAngularAcceleration
+        const float epsilon = std::numeric_limits<float>::epsilon();
+        Vector3f J (epsilon, epsilon, epsilon);
+        J(mWheelAxis) = wheelRotationalInertia;
+        mRigidbody.setRotationalInertia(J);
+    }
+
+    void setNextAngularMomentumError (const auto angularMomentumError) {
+        mNextAngularMomentumError = angularMomentumError;
+    }
+
+    void setActuatorCommandPollInterval (const auto actuatorCommandPollInterval) {
+        mActuator.setCommandPollInterval(actuatorCommandPollInterval);
+    }
+
+    void setActuatorMaxVoltage (const auto actuatorMaxVoltage) {
+        mActuator.setMaxVoltage(actuatorMaxVoltage);
+    }
+
+    void setActuatorMaxCurrent (const auto actuatorMaxCurrent) {
+        mActuator.setMaxCurrent(actuatorMaxCurrent);
+    }
+
+    void setActuatorResistance (const auto actuatorResistance) {
+        mActuator.setResistance(actuatorResistance);
+    }
+
+    void setActuatorMotorConstant (const auto actuatorMotorConstant) {
+        mActuator.setMotorConstant(actuatorMotorConstant);
+    }
+
+    void setActuatorControllerKP (const auto kP) {
+        mActuatorController.setKP(kP);
+    }
+
+    void setActuatorControllerKD (const auto kD) {
+        mActuatorController.setKD(kD);
+    }
+
+private:
+    void substep(const float deltaTime) {
+
+            if (deltaTime == 0.0f) return;
+
+            const auto angVelError = (mAngularMomentumGoal / mWheelRotationalInertia) - mRigidbody.angularVelocity()(mWheelAxis);
+            const auto actuatorEffort = mActuatorController.computeEffort(angVelError, deltaTime);
+
+            mActuator.setNextVoltage(actuatorEffort);
+            const auto actuatorImpulse = mActuator.step(
+                deltaTime,
+                mRigidbody.angularVelocity()(mWheelAxis),
+                mWheelRotationalInertia
+            );
+
+            Vector3f torque = Vector3f::Zero();
+            torque(mWheelAxis) = actuatorImpulse / deltaTime;
+            mRigidbody.setTorque(torque);
+            mRigidbody.step(deltaTime);
+    }
+
+public:
+    void step (const float deltaTime) {
+
+        if (deltaTime == 0.0f) return;
+        if (deltaTime > mCommandPollInterval) {
+            std::cerr
+                << std::format(
+                    "{}: deltaTime of {} greater than Command Poll Interval of {}.",
+                    std::source_location::current().function_name(),
+                    deltaTime,
+                    mCommandPollInterval
+                )
+            << std::endl;
+            std::abort();
+        }
+
+        if (deltaTime <= mTimeToNextPoll) {
+            substep(deltaTime);
+        }
+
+        else {
+            const auto nextAngularMomentumGoal = mRigidbody.angularMomentum()(mWheelAxis) + mNextAngularMomentumError;
+
+            substep(mTimeToNextPoll);
+            mAngularMomentumGoal = nextAngularMomentumGoal;
+            substep(deltaTime - mTimeToNextPoll);
+
+            mTimeToNextPoll += mCommandPollInterval;
+        }
+        
+        mTimeToNextPoll -= deltaTime;
+    }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const ReactionWheel& instance) {
+        return ostream
+            << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
+            << "Wheel Rotational Inertia: " << instance.mWheelRotationalInertia << "\n"
+            << "Time to Next Poll: " << instance.mTimeToNextPoll << "\n"
+            << "Angular Momentum Goal: " << instance.mAngularMomentumGoal << "\n"
+            << "Next Angular Momentum Error: " << instance.mNextAngularMomentumError << "\n"
+            << "Rigidbody: " << "\n"
+            << instance.mRigidbody
+            << "Actuator: " << "\n"
+            << instance.mActuator;
+    }
+};
+
+
+class Magnetorquer {
+
+    // Properties
+    float mCommandPollInterval = 0.0f;
+    float mMaxVoltage = 0.0f;
+    float mResistance = 0.0f;
+    float mInductance = 0.0f;
+    float mDipolePerAmp = 0.0f;
+
+    // State
+    float mVoltage = 0.0f;
+    float mCurrent = 0.0f;
+    float mNextVoltage = 0.0f;
+    float mTimeToNextPoll = 0.0f;
+
+public:
+
+    const auto commandPollInterval () const { return mCommandPollInterval; }
+    const auto maxVoltage          () const { return mMaxVoltage;          }
+    const auto resistance          () const { return mResistance;          }
+    const auto inductance          () const { return mInductance;          }
+    const auto dipolePerAmp        () const { return mDipolePerAmp;        }
+    const auto voltage             () const { return mVoltage;             }
+    const auto current             () const { return mCurrent;             }
+    const auto nextVoltage         () const { return mNextVoltage;         }
+    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
+
+    void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
+    void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
+    void setResistance          (const auto resistance)          { mResistance = resistance;                   }
+    void setInductance          (const auto inductance)          { mInductance = inductance;                   }
+    void setDipolePerAmp        (const auto dipolePerAmp)        { mDipolePerAmp = dipolePerAmp;               }
+
+    void setNextDipole (const auto nextDipole) {
+        const float nextVoltage = nextDipole / mDipolePerAmp * mResistance;
+        mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
+    }
+
+private:
+    float substep (const float deltaTime) {
+
+        const auto targetCurrent = mVoltage / mResistance;
+        const auto timeConstant = mInductance / mResistance;
+
+        const auto startCurrent = mCurrent;
+        const auto currentError = targetCurrent - startCurrent;
+        const auto endCurrent = startCurrent + currentError * -std::expm1(-deltaTime / timeConstant);
+        const auto deltaCurrent = endCurrent - startCurrent;
+
+        mCurrent = endCurrent;
+        return targetCurrent * deltaTime - deltaCurrent * timeConstant;
+    }
+
+public:
+    float step (const float deltaTime) {
+
+        float charge = 0.0f;
+
+        if (deltaTime == 0.0f) return charge;
+        if (deltaTime > mCommandPollInterval) {
+            std::cerr
+                << std::format(
+                    "{}: deltaTime of {} greater than Command Poll Interval of {}.",
+                    std::source_location::current().function_name(),
+                    deltaTime,
+                    mCommandPollInterval
+                )
+            << std::endl;
+            std::abort();
+        }
+
+        if (deltaTime <= mTimeToNextPoll) {
+            charge = substep(deltaTime);
+        }
+
+        else {
+            charge = substep(mTimeToNextPoll);
+            mVoltage = mNextVoltage;
+            charge += substep(deltaTime - mTimeToNextPoll);
+
+            mTimeToNextPoll += mCommandPollInterval;
+        }
+        
+        mTimeToNextPoll -= deltaTime;
+        return charge * mDipolePerAmp;
+    }
+
+    friend std::ostream& operator<< (std::ostream& ostream, const Magnetorquer& instance) {
+        return ostream
+            << "Command Poll Interval: " << instance.mCommandPollInterval << "\n"
+            << "Max Voltage: " << instance.mMaxVoltage << "\n"
+            << "Resistance: " << instance.mResistance << "\n"
+            << "Inductance: " << instance.mInductance << "\n"
+            << "Dipole per Amp: " << instance.mDipolePerAmp << "\n"
+            << "Voltage: " << instance.mVoltage << "\n"
+            << "Current: " << instance.mCurrent << "\n"
+            << "Next Voltage: " << instance.mNextVoltage << "\n"
+            << "Time To Next Poll: " << instance.mTimeToNextPoll;
+    }
+};
+
+void step (
+    const float absoluteTime,
+    const float deltaTime,
+    Rigidbody& craft,
+    ReactionWheel& rwheelX,
+    ReactionWheel& rwheelY,
+    ReactionWheel& rwheelZ,
+    Magnetorquer& magtorqueX,
+    Magnetorquer& magtorqueY,
+    Magnetorquer& magtorqueZ
+) {
+    if (deltaTime == 0.0f) return;
+
+    // Find craft intermediate axis
+    const auto& J = craft.rotationalInertia();
     std::vector<std::pair<float, size_t>> JSorted = {{J.x(), 0u}, {J.y(), 1u}, {J.z(), 2u}};
     std::sort(JSorted.begin(), JSorted.end());
-    const size_t intermediateAxis = JSorted[2].second;
-    
-    Vector3f goal = Vector3f::Zero();
-    goal(intermediateAxis) = cube.angularVelocity()[intermediateAxis];
+    const size_t intermediateAxis = JSorted[1].second;
 
-    // Compute effort values
-    const Vector3f torque = controller.computeEffort(cube.angularVelocity(), goal, deltaTime); 
+    // Calculate craft ang momentum error (goal is to zero non-intermediate axes)
+    Vector3f craftAngMomentumError = -craft.angularMomentum();
+    craftAngMomentumError(intermediateAxis) = 0.0f;
 
-    cube.setTorque(torque);
-    cube.step(deltaTime);
+    // Update reaction wheel setpoints; rwheel error = -craft error, 3rd law
+    rwheelX.setNextAngularMomentumError(-craftAngMomentumError.x());
+    rwheelY.setNextAngularMomentumError(-craftAngMomentumError.y());
+    rwheelZ.setNextAngularMomentumError(-craftAngMomentumError.z());
+
+    // Apply wheel setpoints and update craft ang momentum
+    const Vector3f rwheelPreStepAngularMomentum (
+        rwheelX.rigidbody().angularMomentum().x(),
+        rwheelY.rigidbody().angularMomentum().y(),
+        rwheelZ.rigidbody().angularMomentum().z()
+    );
+
+    rwheelX.step(deltaTime);
+    rwheelY.step(deltaTime);
+    rwheelZ.step(deltaTime);
+
+    const Vector3f rwheelPostStepAngularMomentum (
+        rwheelX.rigidbody().angularMomentum().x(),
+        rwheelY.rigidbody().angularMomentum().y(),
+        rwheelZ.rigidbody().angularMomentum().z()
+    );
+
+    const Vector3f rwheelDeltaAngularMomentum = rwheelPostStepAngularMomentum - rwheelPreStepAngularMomentum;
+
+    // Apply magtorque setpoints and update craft ang momentum
+    const float orbitalRate = 2.0f * M_PI / 5400.0f; // rad/s, estimated 90 minute orbit
+    const Vector3f earthField = 30e-6f * Vector3f(std::cos(orbitalRate * absoluteTime), std::sin(orbitalRate * absoluteTime), 0.0f);
+    const Vector3f earthFieldCraft = craft.rotation().conjugate().matrix() * earthField;
+
+    const float desaturationTime = 1.0f; // realistically, the mtorqs are way too weak for this to actually limit their effort
+    Vector3f magtorqueTorqueGoal (
+        -rwheelX.rigidbody().angularMomentum().x() / desaturationTime,
+        -rwheelY.rigidbody().angularMomentum().y() / desaturationTime,
+        -rwheelZ.rigidbody().angularMomentum().z() / desaturationTime
+    );
+    const Vector3f magtorqueDipoleGoal = earthFieldCraft.cross(magtorqueTorqueGoal) / earthFieldCraft.squaredNorm();
+
+    magtorqueX.setNextDipole(magtorqueDipoleGoal.x());
+    magtorqueY.setNextDipole(magtorqueDipoleGoal.y());
+    magtorqueZ.setNextDipole(magtorqueDipoleGoal.z());
+
+    const Vector3f magtorqueImpulse = Vector3f(
+        magtorqueX.step(deltaTime),
+        magtorqueY.step(deltaTime),
+        magtorqueZ.step(deltaTime)
+    ).cross(earthFieldCraft);
+
+    craft.setAngularMomentum(craft.angularMomentum() + -rwheelDeltaAngularMomentum + magtorqueImpulse);
+    craft.step(deltaTime, rwheelPostStepAngularMomentum);
 }
 
 
@@ -317,13 +759,47 @@ int main(int argc, char* argv[]) {
     // State
 
     auto lastTime = std::chrono::steady_clock::now();
-    PDController<Vector3f> controller;
-
     const float& pi = std::numbers::pi_v<float>;
+
+    ReactionWheel rwheelX;
+    ReactionWheel rwheelY;
+    ReactionWheel rwheelZ;
+
+    const auto applyWheelConfig = [&](unsigned axis, ReactionWheel& rwheel) {
+        rwheel.setWheelRotationalInertia(axis, 0.05f);
+        rwheel.setActuatorMaxVoltage(24.0f);
+        rwheel.setActuatorMaxCurrent(5.0f);
+        rwheel.setActuatorResistance(0.5f);
+        rwheel.setActuatorMotorConstant(0.1f);
+        rwheel.setActuatorControllerKP(1.0f);
+        rwheel.setActuatorControllerKD(0.0f);
+        rwheel.setCommandPollInterval(0.2f);
+        rwheel.setActuatorCommandPollInterval(0.1f);
+    };
+
+    applyWheelConfig(0, rwheelX);
+    applyWheelConfig(1, rwheelY);
+    applyWheelConfig(2, rwheelZ);
+
+    Magnetorquer magtorqueX;
+    Magnetorquer magtorqueY;
+    Magnetorquer magtorqueZ;
+
+    const auto applyMagtorqueConfig = [&](Magnetorquer& magtorque) {
+        magtorque.setCommandPollInterval(0.1f);
+        magtorque.setMaxVoltage(24.0f);
+        magtorque.setResistance(100.0f);
+        magtorque.setInductance(1.0f);
+        magtorque.setDipolePerAmp(100.0f);
+    };
+
+    applyMagtorqueConfig(magtorqueX);
+    applyMagtorqueConfig(magtorqueY);
+    applyMagtorqueConfig(magtorqueZ);
 
     Rigidbody cube;
     cube.setScale( Vector3f(1.0f, 3.0f, 5.0f) );
-    cube.setAngularVelocity( Vector3f(30.0f, 60.0f, 90.0f) * pi / 180.0f );
+    cube.setAngularVelocity( Vector3f(30.0f, 90.0f, 30.0f) * pi / 180.0f );
 
     Transform camera;
     camera.setPosition( Vector3f(5.0f, 5.0f, 5.0f) );
@@ -445,20 +921,30 @@ int main(int argc, char* argv[]) {
         window.doneCurrent();
     };
 
-    QTimer timer;
-    QObject::connect(&timer, &QTimer::timeout, [&]() {
-        // Calculate deltaTime
-        const auto currentTime = std::chrono::steady_clock::now();
-        const auto deltaTime = static_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
-        lastTime = currentTime;
+    float absoluteTime = 0.0f;
 
-        // Step sim and re-render
-        step(deltaTime, cube, controller);
+    QElapsedTimer elapsed;
+    elapsed.start();
+
+    QTimer physics;
+    physics.setTimerType(Qt::PreciseTimer);
+    QObject::connect(&physics, &QTimer::timeout, [&]() {
+        const float deltaTime = 1e-3f;
+        absoluteTime += deltaTime;
+        step(
+            absoluteTime, deltaTime, cube,
+            rwheelX, rwheelY, rwheelZ,
+            magtorqueX, magtorqueY, magtorqueZ
+        );
+    });
+    physics.start(1);
+
+    QTimer display;
+    QObject::connect(&display, &QTimer::timeout, [&]() {
         window.update();
     });
-    timer.start((1.0f / 60.0f) * 1000.0f);
+    display.start(static_cast<int>(1.0f / 120.0f * 1000.0f));
 
     window.show();
     return app.exec();
-
 }
