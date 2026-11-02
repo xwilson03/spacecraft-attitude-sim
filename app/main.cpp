@@ -527,7 +527,8 @@ public:
     void setInductance          (const auto inductance)          { mInductance = inductance;                   }
     void setDipolePerAmp        (const auto dipolePerAmp)        { mDipolePerAmp = dipolePerAmp;               }
 
-    void setNextVoltage (const auto nextVoltage) {
+    void setNextDipole (const auto nextDipole) {
+        const float nextVoltage = nextDipole / mDipolePerAmp * mResistance;
         mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
     }
 
@@ -641,22 +642,30 @@ void step (
 
     const Vector3f rwheelDeltaAngularMomentum = rwheelPostStepAngularMomentum - rwheelPreStepAngularMomentum;
 
-    const float orbitalRate = 2.0f * M_PI / 5400.0f;           // rad/s, about a 90 minute orbit
+    // Apply magtorque setpoints and update craft ang momentum
+    const float orbitalRate = 2.0f * M_PI / 5400.0f; // rad/s, estimated 90 minute orbit
     const Vector3f earthField = 30e-6f * Vector3f(std::cos(orbitalRate * absoluteTime), std::sin(orbitalRate * absoluteTime), 0.0f);
     const Vector3f earthFieldCraft = craft.rotation().conjugate().matrix() * earthField;
 
-    magtorqueX.setNextVoltage(24.0f);
-    magtorqueY.setNextVoltage(24.0f);
-    magtorqueZ.setNextVoltage(24.0f);
+    const float desaturationTime = 1.0f; // realistically, the mtorqs are way too weak for this to actually limit their effort
+    Vector3f magtorqueTorqueGoal (
+        -rwheelX.rigidbody().angularMomentum().x() / desaturationTime,
+        -rwheelY.rigidbody().angularMomentum().y() / desaturationTime,
+        -rwheelZ.rigidbody().angularMomentum().z() / desaturationTime
+    );
+    const Vector3f magtorqueDipoleGoal = earthFieldCraft.cross(magtorqueTorqueGoal) / earthFieldCraft.squaredNorm();
 
-    const Vector3f magtorqueImpulseCraft (
+    magtorqueX.setNextDipole(magtorqueDipoleGoal.x());
+    magtorqueY.setNextDipole(magtorqueDipoleGoal.y());
+    magtorqueZ.setNextDipole(magtorqueDipoleGoal.z());
+
+    const Vector3f magtorqueImpulse = Vector3f(
         magtorqueX.step(deltaTime),
         magtorqueY.step(deltaTime),
         magtorqueZ.step(deltaTime)
-    );
-    const Vector3f magtorqueImpulseInertial = magtorqueImpulseCraft.cross(earthFieldCraft);
+    ).cross(earthFieldCraft);
 
-    craft.setAngularMomentum(craft.angularMomentum() + -rwheelDeltaAngularMomentum + magtorqueImpulseInertial);
+    craft.setAngularMomentum(craft.angularMomentum() + -rwheelDeltaAngularMomentum + magtorqueImpulse);
     craft.step(deltaTime, rwheelPostStepAngularMomentum);
 }
 
