@@ -14,6 +14,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::OpenGLWidgets
         Eigen3::Eigen
         transform
+        rigidbody
 )
 
 install(
