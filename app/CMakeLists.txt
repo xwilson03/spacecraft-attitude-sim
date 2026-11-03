@@ -10,15 +10,13 @@ add_executable(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        Qt6::Widgets
         Qt6::OpenGLWidgets
+        Qt6::Widgets
         Eigen3::Eigen
-        actuator
-        transform
-        rigidbody
-        pdcontroller
-        reactionwheel
         magnetorquer
+        reactionwheel
+        rigidbody
+        transform
 )
 
 install(

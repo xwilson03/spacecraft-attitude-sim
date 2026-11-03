@@ -1,18 +1,13 @@
 module;
-
 #include <Eigen/Dense>
-#include <Eigen/Geometry>
-
 export module adcs.Rigidbody;
 
 import adcs.Transform;
 
-
-using adcs::Transform;
 using Eigen::AngleAxisf;
-using Eigen::Affine3f;
-using Eigen::Vector3f;
 using Eigen::Quaternionf;
+using Eigen::Vector3f;
+using adcs::Transform;
 
 
 export namespace adcs {

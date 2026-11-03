@@ -1,20 +1,18 @@
 module;
-#include <algorithm>
-#include <cmath>
+#include <Eigen/Dense>
 #include <format>
 #include <iostream>
 #include <source_location>
-#include <Eigen/Dense>
 export module adcs.ReactionWheel;
 
 import adcs.Actuator;
 import adcs.PDController;
 import adcs.Rigidbody;
 
+using Eigen::Vector3f;
 using adcs::Actuator;
 using adcs::PDController;
 using adcs::Rigidbody;
-using Eigen::Vector3f;
 
 
 export namespace adcs {
@@ -33,6 +31,26 @@ class ReactionWheel {
     Rigidbody mRigidbody;
     Actuator mActuator;
     PDController<float> mActuatorController;
+
+    void substep(const float deltaTime) {
+
+            if (deltaTime == 0.0f) return;
+
+            const auto angVelError = (mAngularMomentumGoal / mWheelRotationalInertia) - mRigidbody.angularVelocity()(mWheelAxis);
+            const auto actuatorEffort = mActuatorController.computeEffort(angVelError, deltaTime);
+
+            mActuator.setNextVoltage(actuatorEffort);
+            const auto actuatorImpulse = mActuator.step(
+                deltaTime,
+                mRigidbody.angularVelocity()(mWheelAxis),
+                mWheelRotationalInertia
+            );
+
+            Vector3f torque = Vector3f::Zero();
+            torque(mWheelAxis) = actuatorImpulse / deltaTime;
+            mRigidbody.setTorque(torque);
+            mRigidbody.step(deltaTime);
+    }
 
 public:
     const auto  commandPollInterval         () const { return mCommandPollInterval;         }
@@ -91,28 +109,6 @@ public:
         mActuatorController.setKD(kD);
     }
 
-private:
-    void substep(const float deltaTime) {
-
-            if (deltaTime == 0.0f) return;
-
-            const auto angVelError = (mAngularMomentumGoal / mWheelRotationalInertia) - mRigidbody.angularVelocity()(mWheelAxis);
-            const auto actuatorEffort = mActuatorController.computeEffort(angVelError, deltaTime);
-
-            mActuator.setNextVoltage(actuatorEffort);
-            const auto actuatorImpulse = mActuator.step(
-                deltaTime,
-                mRigidbody.angularVelocity()(mWheelAxis),
-                mWheelRotationalInertia
-            );
-
-            Vector3f torque = Vector3f::Zero();
-            torque(mWheelAxis) = actuatorImpulse / deltaTime;
-            mRigidbody.setTorque(torque);
-            mRigidbody.step(deltaTime);
-    }
-
-public:
     void step (const float deltaTime) {
 
         if (deltaTime == 0.0f) return;

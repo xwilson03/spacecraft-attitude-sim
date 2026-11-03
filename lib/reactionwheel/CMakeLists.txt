@@ -10,6 +10,6 @@ target_link_libraries(reactionwheel
     PUBLIC
         Eigen3::Eigen
         actuator
-        rigidbody
         pdcontroller
+        rigidbody
 )

@@ -23,28 +23,6 @@ class Actuator {
     float mNextVoltage= 0.0f;
     float mTimeToNextPoll = 0.0f;
 
-public:
-
-    const auto commandPollInterval () const { return mCommandPollInterval; }
-    const auto maxVoltage          () const { return mMaxVoltage;          }
-    const auto maxCurrent          () const { return mMaxCurrent;          }
-    const auto resistance          () const { return mResistance;          }
-    const auto motorConstant       () const { return mMotorConstant;       }
-    const auto voltage             () const { return mVoltage;             }
-    const auto nextVoltage         () const { return mNextVoltage;         }
-    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
-
-    void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
-    void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
-    void setMaxCurrent          (const auto maxCurrent)          { mMaxCurrent = maxCurrent;                   }
-    void setResistance          (const auto resistance)          { mResistance = resistance;                   }
-    void setMotorConstant       (const auto motorConstant)       { mMotorConstant = motorConstant;             }
-
-    void setNextVoltage (const auto nextVoltage) {
-        mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
-    }
-
-private:
     float computeImpulse (
             const float startSpeed,
             const float inertia,
@@ -67,6 +45,25 @@ private:
     }
 
 public:
+
+    const auto commandPollInterval () const { return mCommandPollInterval; }
+    const auto maxVoltage          () const { return mMaxVoltage;          }
+    const auto maxCurrent          () const { return mMaxCurrent;          }
+    const auto resistance          () const { return mResistance;          }
+    const auto motorConstant       () const { return mMotorConstant;       }
+    const auto voltage             () const { return mVoltage;             }
+    const auto nextVoltage         () const { return mNextVoltage;         }
+    const auto timeToNextPoll      () const { return mTimeToNextPoll;      }
+
+    void setCommandPollInterval (const auto commandPollInterval) { mCommandPollInterval = commandPollInterval; }
+    void setMaxVoltage          (const auto maxVoltage)          { mMaxVoltage = maxVoltage;                   }
+    void setMaxCurrent          (const auto maxCurrent)          { mMaxCurrent = maxCurrent;                   }
+    void setResistance          (const auto resistance)          { mResistance = resistance;                   }
+    void setMotorConstant       (const auto motorConstant)       { mMotorConstant = motorConstant;             }
+
+    void setNextVoltage (const auto nextVoltage) {
+        mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
+    }
 
     float step (
         const float deltaTime,

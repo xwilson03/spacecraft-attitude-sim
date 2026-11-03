@@ -31,8 +31,6 @@ constexpr T Initializer() noexcept {
 template <Controllable T>
 class PDController {
 
-protected:
-
     float mKP = 0.0f;
     float mKD = 0.0f;
 

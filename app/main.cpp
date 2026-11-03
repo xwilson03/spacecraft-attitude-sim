@@ -1,43 +1,25 @@
-#include <chrono>
-#include <cmath>
-#include <cstdlib>
-#include <format>
-#include <functional>
-#include <iostream>
-#include <numbers>
-#include <limits>
-#include <source_location>
-
 #define EIGEN_DEFAULT_IO_FORMAT Eigen::IOFormat(4, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]")
 
+#include <iostream>
 #include <Eigen/Dense>
-#include <Eigen/Geometry>
 #include <QApplication>
 #include <QElapsedTimer>
-#include <QOpenGLWidget>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
+#include <QOpenGLWidget>
 #include <QTimer>
 
-import adcs.Actuator;
-import adcs.Transform;
-import adcs.Rigidbody;
-import adcs.PDController;
-import adcs.ReactionWheel;
 import adcs.Magnetorquer;
+import adcs.ReactionWheel;
+import adcs.Rigidbody;
+import adcs.Transform;
 
-using adcs::Actuator;
-using adcs::Transform;
-using adcs::Rigidbody;
-using adcs::PDController;
-using adcs::ReactionWheel;
-using adcs::Magnetorquer;
-using Eigen::Vector3f;
-using Eigen::Quaternionf;
-using Eigen::Translation3f;
-using Eigen::Affine3f;
 using Eigen::Matrix4f;
-using Eigen::AngleAxisf;
+using Eigen::Vector3f;
+using adcs::Magnetorquer;
+using adcs::ReactionWheel;
+using adcs::Rigidbody;
+using adcs::Transform;
 
 
 class GLSimWidget : public QOpenGLWidget {
@@ -212,7 +194,6 @@ int main(int argc, char* argv[]) {
 
     // State
 
-    auto lastTime = std::chrono::steady_clock::now();
     const float& pi = std::numbers::pi_v<float>;
 
     ReactionWheel rwheelX;

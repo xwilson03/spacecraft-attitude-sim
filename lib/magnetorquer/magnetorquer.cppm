@@ -4,7 +4,6 @@ module;
 #include <format>
 #include <iostream>
 #include <source_location>
-#include <Eigen/Dense>
 export module adcs.Magnetorquer;
 
 
@@ -24,6 +23,20 @@ class Magnetorquer {
     float mCurrent = 0.0f;
     float mNextVoltage = 0.0f;
     float mTimeToNextPoll = 0.0f;
+
+    float substep (const float deltaTime) {
+
+        const auto targetCurrent = mVoltage / mResistance;
+        const auto timeConstant = mInductance / mResistance;
+
+        const auto startCurrent = mCurrent;
+        const auto currentError = targetCurrent - startCurrent;
+        const auto endCurrent = startCurrent + currentError * -std::expm1(-deltaTime / timeConstant);
+        const auto deltaCurrent = endCurrent - startCurrent;
+
+        mCurrent = endCurrent;
+        return targetCurrent * deltaTime - deltaCurrent * timeConstant;
+    }
 
 public:
 
@@ -48,22 +61,6 @@ public:
         mNextVoltage = std::clamp(nextVoltage, -mMaxVoltage, mMaxVoltage);
     }
 
-private:
-    float substep (const float deltaTime) {
-
-        const auto targetCurrent = mVoltage / mResistance;
-        const auto timeConstant = mInductance / mResistance;
-
-        const auto startCurrent = mCurrent;
-        const auto currentError = targetCurrent - startCurrent;
-        const auto endCurrent = startCurrent + currentError * -std::expm1(-deltaTime / timeConstant);
-        const auto deltaCurrent = endCurrent - startCurrent;
-
-        mCurrent = endCurrent;
-        return targetCurrent * deltaTime - deltaCurrent * timeConstant;
-    }
-
-public:
     float step (const float deltaTime) {
 
         float charge = 0.0f;

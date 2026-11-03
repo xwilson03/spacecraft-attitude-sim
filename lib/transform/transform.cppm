@@ -1,15 +1,11 @@
 module;
-
 #include <Eigen/Dense>
-#include <Eigen/Geometry>
-
 export module adcs.Transform;
 
-
-using Eigen::AngleAxisf;
 using Eigen::Affine3f;
-using Eigen::Vector3f;
+using Eigen::AngleAxisf;
 using Eigen::Quaternionf;
+using Eigen::Vector3f;
 
 
 export namespace adcs {
