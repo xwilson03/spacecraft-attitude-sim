@@ -18,6 +18,7 @@ target_link_libraries(${PROJECT_NAME}
         rigidbody
         pdcontroller
         reactionwheel
+        magnetorquer
 )
 
 install(
