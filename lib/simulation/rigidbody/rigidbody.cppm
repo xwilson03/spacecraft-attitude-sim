@@ -14,9 +14,13 @@ export namespace adcs {
 
 class Rigidbody : public Transform {
 
+protected:
+
     Vector3f mAngularVelocity   = Vector3f::Zero();
     Vector3f mTorque            = Vector3f::Zero();
     Vector3f mRotationalInertia;
+
+private:
 
     Vector3f computeAngularAcceleration(const Vector3f& initialVelocity, const Vector3f& internalMomentum) const {
         const Vector3f L = initialVelocity.cwiseProduct(mRotationalInertia) + internalMomentum;
