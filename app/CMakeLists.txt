@@ -1,10 +1,6 @@
 find_package(Qt6 COMPONENTS Widgets OpenGLWidgets REQUIRED)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
-set(AUTOMOC ON)
-set(AUTOUIC ON)
-set(AUTORCC ON)
-
 add_executable(${PROJECT_NAME}
     main.cpp
 )
@@ -13,6 +9,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::OpenGLWidgets
         Qt6::Widgets
         Eigen3::Eigen
+        glsimwidget
         magnetorquer
         reactionwheel
         rigidbody
