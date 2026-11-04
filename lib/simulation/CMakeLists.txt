@@ -1,0 +1,7 @@
+add_subdirectory(actuator)
+add_subdirectory(magnetorquer)
+add_subdirectory(pdcontroller)
+add_subdirectory(reactionwheel)
+add_subdirectory(rigidbody)
+add_subdirectory(spacecraft)
+add_subdirectory(transform)
