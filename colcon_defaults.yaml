@@ -1,0 +1,7 @@
+build:
+  symlink-install: true
+  cmake-args:
+    - -G Ninja
+    - -DCMAKE_CXX_COMPILER=clang++-18
+    - -DCMAKE_BUILD_TYPE=Release
+    - -DCMAKE_PROJECT_INCLUDE:FILEPATH=../../CMakeConfig.cmake
