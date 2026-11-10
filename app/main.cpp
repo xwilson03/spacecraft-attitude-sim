@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <QApplication>
 #include <QTimer>
+#include "simsnooper.hpp"
 
 import adcs.GLSimWidget;
 import adcs.Spacecraft;
@@ -11,6 +12,7 @@ import adcs.Transform;
 using Eigen::Vector3f;
 using adcs::GLSimWidget;
 using adcs::Scene;
+using adcs::SimSnooper;
 using adcs::Spacecraft;
 using adcs::Transform;
 
@@ -34,8 +36,10 @@ int main(int argc, char* argv[]) {
     };
 
     // App Setup
-    QApplication app(argc, argv);
+    rclcpp::init(argc, argv);
+    QApplication app (argc, argv);
     GLSimWidget window (scene);
+    auto snooper = std::make_shared<SimSnooper>(craft);
 
     float absoluteTime = 0.0f;
 
@@ -44,6 +48,7 @@ int main(int argc, char* argv[]) {
         const float deltaTime = 1e-3f;
         absoluteTime += deltaTime;
         craft.step(absoluteTime, deltaTime);
+        snooper->publish();
     });
     physics.start(1);
 
@@ -52,5 +57,7 @@ int main(int argc, char* argv[]) {
     display.start(static_cast<int>(1.0f / 120.0f * 1000.0f));
 
     window.show();
-    return app.exec();
+    int status = app.exec();
+    rclcpp::shutdown();
+    return status;
 }

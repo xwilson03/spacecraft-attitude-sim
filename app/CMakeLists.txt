@@ -10,6 +10,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Widgets
         Eigen3::Eigen
         glsimwidget
+        simsnooper
         spacecraft
         transform
 )
