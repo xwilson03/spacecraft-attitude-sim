@@ -1,5 +1,4 @@
 build:
-  symlink-install: true
   cmake-args:
     - -G Ninja
     - -DCMAKE_CXX_COMPILER=clang++-18
