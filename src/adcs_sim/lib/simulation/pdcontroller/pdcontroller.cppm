@@ -31,9 +31,11 @@ constexpr T Initializer() noexcept {
 template <Controllable T>
 class PDController {
 
+    // Properties
     float mKP = 0.0f;
     float mKD = 0.0f;
 
+    // State
     T mLastError = Initializer<T>();
 
 public:

@@ -18,7 +18,6 @@ export namespace adcs {
 
 class Spacecraft : public Rigidbody {
 
-    // State
     ReactionWheel rwheelX;
     ReactionWheel rwheelY;
     ReactionWheel rwheelZ;

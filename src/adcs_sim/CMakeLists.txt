@@ -5,3 +5,5 @@ find_package(ament_cmake)
 
 add_subdirectory(lib)
 add_subdirectory(app)
+
+ament_package()

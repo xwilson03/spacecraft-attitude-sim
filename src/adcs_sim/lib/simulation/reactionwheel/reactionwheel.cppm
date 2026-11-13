@@ -19,7 +19,7 @@ export namespace adcs {
 
 class ReactionWheel {
 
-    // Parameters
+    // Properties
     float mCommandPollInterval = 0.0f;
     float mWheelRotationalInertia = 0.0f;
     unsigned mWheelAxis = 0u;
