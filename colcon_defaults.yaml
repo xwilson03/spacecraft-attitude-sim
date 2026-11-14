@@ -4,6 +4,7 @@ build:
     - console_cohesion+
   cmake-args:
     - -G Ninja
+    - -DCMAKE_LINKER_TYPE=MOLD
     - -DCMAKE_CXX_COMPILER=clang++-18
     - -DCMAKE_BUILD_TYPE=Release
     - -DCMAKE_PROJECT_INCLUDE:FILEPATH=../../CMakeConfig.cmake
