@@ -1,0 +1,4 @@
+adcs_msgs/Transform transform
+geometry_msgs/Vector3 angular_velocity
+geometry_msgs/Vector3 torque
+geometry_msgs/Vector3 rotational_inertia

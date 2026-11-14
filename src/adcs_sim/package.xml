@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+
+<package format="3">
+  <name> adcs_sim </name>
+  <version> 0.0.0 </version>
+  <description> ADCS Simulation Stack </description>
+  <maintainer email="xander@xwilson.dev"> Xander Wilson </maintainer>
+  <license> LGPL </license>
+
+  <depend> adcs_msgs </depend>
+  <depend> eigen </depend>
+  <depend> geometry_msgs </depend>
+  <depend> qt6-base-dev </depend>
+  <depend> rclcpp </depend>
+
+  <buildtool_depend> ament_cmake </buildtool_depend>
+  <export> <build_type> ament_cmake </build_type> </export>
+</package>

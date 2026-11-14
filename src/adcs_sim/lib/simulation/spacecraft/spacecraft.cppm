@@ -18,16 +18,22 @@ export namespace adcs {
 
 class Spacecraft : public Rigidbody {
 
-    // State
-    ReactionWheel rwheelX;
-    ReactionWheel rwheelY;
-    ReactionWheel rwheelZ;
-    Magnetorquer magtorqueX;
-    Magnetorquer magtorqueY;
-    Magnetorquer magtorqueZ;
+    ReactionWheel mRWheelX;
+    ReactionWheel mRWheelY;
+    ReactionWheel mRWheelZ;
+    Magnetorquer mMagtorqueX;
+    Magnetorquer mMagtorqueY;
+    Magnetorquer mMagtorqueZ;
 
 public:
-    
+
+    const auto& rWheelX ()    const { return mRWheelX;    }
+    const auto& rWheelY ()    const { return mRWheelY;    }
+    const auto& rWheelZ ()    const { return mRWheelZ;    }
+    const auto& magtorqueX () const { return mMagtorqueX; }
+    const auto& magtorqueY () const { return mMagtorqueY; }
+    const auto& magtorqueZ () const { return mMagtorqueZ; }
+
     Spacecraft() {
     
         const auto applyWheelConfig = [&](unsigned axis, ReactionWheel& rwheel) {
@@ -50,13 +56,13 @@ public:
             magtorque.setDipolePerAmp(100.0f);
         };
 
-        applyWheelConfig(0, rwheelX);
-        applyWheelConfig(1, rwheelY);
-        applyWheelConfig(2, rwheelZ);
+        applyWheelConfig(0, mRWheelX);
+        applyWheelConfig(1, mRWheelY);
+        applyWheelConfig(2, mRWheelZ);
 
-        applyMagtorqueConfig(magtorqueX);
-        applyMagtorqueConfig(magtorqueY);
-        applyMagtorqueConfig(magtorqueZ);
+        applyMagtorqueConfig(mMagtorqueX);
+        applyMagtorqueConfig(mMagtorqueY);
+        applyMagtorqueConfig(mMagtorqueZ);
     }
 
 
@@ -80,25 +86,25 @@ public:
         craftAngMomentumError(intermediateAxis) = 0.0f;
 
         // Update reaction wheel setpoints; rwheel error = -craft error, 3rd law
-        rwheelX.setNextAngularMomentumError(-craftAngMomentumError.x());
-        rwheelY.setNextAngularMomentumError(-craftAngMomentumError.y());
-        rwheelZ.setNextAngularMomentumError(-craftAngMomentumError.z());
+        mRWheelX.setNextAngularMomentumError(-craftAngMomentumError.x());
+        mRWheelY.setNextAngularMomentumError(-craftAngMomentumError.y());
+        mRWheelZ.setNextAngularMomentumError(-craftAngMomentumError.z());
 
         // Apply wheel setpoints and update craft ang momentum
         const Vector3f rwheelPreStepAngularMomentum (
-            rwheelX.rigidbody().angularMomentum().x(),
-            rwheelY.rigidbody().angularMomentum().y(),
-            rwheelZ.rigidbody().angularMomentum().z()
+            mRWheelX.rigidbody().angularMomentum().x(),
+            mRWheelY.rigidbody().angularMomentum().y(),
+            mRWheelZ.rigidbody().angularMomentum().z()
         );
 
-        rwheelX.step(deltaTime);
-        rwheelY.step(deltaTime);
-        rwheelZ.step(deltaTime);
+        mRWheelX.step(deltaTime);
+        mRWheelY.step(deltaTime);
+        mRWheelZ.step(deltaTime);
 
         const Vector3f rwheelPostStepAngularMomentum (
-            rwheelX.rigidbody().angularMomentum().x(),
-            rwheelY.rigidbody().angularMomentum().y(),
-            rwheelZ.rigidbody().angularMomentum().z()
+            mRWheelX.rigidbody().angularMomentum().x(),
+            mRWheelY.rigidbody().angularMomentum().y(),
+            mRWheelZ.rigidbody().angularMomentum().z()
         );
 
         const Vector3f rwheelDeltaAngularMomentum = rwheelPostStepAngularMomentum - rwheelPreStepAngularMomentum;
@@ -110,20 +116,20 @@ public:
 
         const float desaturationTime = 1.0f; // realistically, the mtorqs are way too weak for this to actually limit their effort
         Vector3f magtorqueTorqueGoal (
-            -rwheelX.rigidbody().angularMomentum().x() / desaturationTime,
-            -rwheelY.rigidbody().angularMomentum().y() / desaturationTime,
-            -rwheelZ.rigidbody().angularMomentum().z() / desaturationTime
+            -mRWheelX.rigidbody().angularMomentum().x() / desaturationTime,
+            -mRWheelY.rigidbody().angularMomentum().y() / desaturationTime,
+            -mRWheelZ.rigidbody().angularMomentum().z() / desaturationTime
         );
         const Vector3f magtorqueDipoleGoal = earthFieldCraft.cross(magtorqueTorqueGoal) / earthFieldCraft.squaredNorm();
 
-        magtorqueX.setNextDipole(magtorqueDipoleGoal.x());
-        magtorqueY.setNextDipole(magtorqueDipoleGoal.y());
-        magtorqueZ.setNextDipole(magtorqueDipoleGoal.z());
+        mMagtorqueX.setNextDipole(magtorqueDipoleGoal.x());
+        mMagtorqueY.setNextDipole(magtorqueDipoleGoal.y());
+        mMagtorqueZ.setNextDipole(magtorqueDipoleGoal.z());
 
         const Vector3f magtorqueImpulse = Vector3f(
-            magtorqueX.step(deltaTime),
-            magtorqueY.step(deltaTime),
-            magtorqueZ.step(deltaTime)
+            mMagtorqueX.step(deltaTime),
+            mMagtorqueY.step(deltaTime),
+            mMagtorqueZ.step(deltaTime)
         ).cross(earthFieldCraft);
 
         setAngularMomentum(angularMomentum() + -rwheelDeltaAngularMomentum + magtorqueImpulse);

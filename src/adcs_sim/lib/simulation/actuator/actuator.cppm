@@ -20,7 +20,7 @@ class Actuator {
 
     // State
     float mVoltage = 0.0f;
-    float mNextVoltage= 0.0f;
+    float mNextVoltage = 0.0f;
     float mTimeToNextPoll = 0.0f;
 
     float computeImpulse (

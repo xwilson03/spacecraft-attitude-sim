@@ -1,0 +1,7 @@
+adcs_msgs/Rigidbody rigidbody
+ReactionWheel rwheel_x
+ReactionWheel rwheel_y
+ReactionWheel rwheel_z
+Magnetorquer magtorque_x
+Magnetorquer magtorque_y
+Magnetorquer magtorque_z

@@ -1,0 +1,12 @@
+# Properties
+float32 command_poll_interval
+float32 wheel_rotational_inertia
+uint8 wheel_axis
+
+# State
+float32 time_to_next_poll
+float32 angular_momentum_goal
+float32 next_angular_momentum_error
+adcs_msgs/Rigidbody rigidbody
+adcs_msgs/Actuator actuator
+adcs_msgs/PDControllerFloat actuator_controller
