@@ -1,5 +1,5 @@
 find_package(rclcpp REQUIRED)
-find_package(geometry_msgs REQUIRED)
+find_package(adcs_msgs REQUIRED)
 
 add_library(simsnooper
     simsnooper.cpp
@@ -10,6 +10,6 @@ target_include_directories(simsnooper
 target_link_libraries(simsnooper
     PUBLIC
         rclcpp::rclcpp
-        ${geometry_msgs_TARGETS}
+        adcs_msgs::adcs_msgs__rosidl_typesupport_cpp
         spacecraft
 )

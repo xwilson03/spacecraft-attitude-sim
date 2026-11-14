@@ -1,26 +1,144 @@
-#include <geometry_msgs/msg/quaternion_stamped.hpp>
 #include "simsnooper.hpp"
 
+import adcs.Actuator;
+import adcs.Magnetorquer;
+import adcs.PDController;
+import adcs.ReactionWheel;
+import adcs.Rigidbody;
 import adcs.Spacecraft;
+import adcs.Transform;
 
+#include <Eigen/Dense>
+#include <adcs_msgs/msg/actuator.hpp>
+#include <adcs_msgs/msg/magnetorquer.hpp>
+#include <adcs_msgs/msg/pd_controller_float.hpp>
+#include <adcs_msgs/msg/reaction_wheel.hpp>
+#include <adcs_msgs/msg/rigidbody.hpp>
+#include <adcs_msgs/msg/spacecraft.hpp>
+#include <adcs_msgs/msg/transform.hpp>
+#include <geometry_msgs/msg/quaternion.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+
+using Eigen::Quaternionf;
+using Eigen::Vector3f;
+using adcs::Actuator;
+using adcs::Magnetorquer;
+using adcs::PDController;
+using adcs::ReactionWheel;
+using adcs::Rigidbody;
 using adcs::Spacecraft;
+using adcs::Transform;
 
 
 namespace adcs {
 
-void SimSnooper::publish() const {
-    QuaternionStamped msg;
+void SimSnooper::toMsg (
+    const Vector3f& in,
+    geometry_msgs::msg::Vector3& out
+) {
+    out.x = in.x();
+    out.y = in.y();
+    out.z = in.z();
+}
 
-    msg.header.stamp = now();
-    msg.header.frame_id = "world";
+void SimSnooper::toMsg (
+    const Quaternionf& in,
+    geometry_msgs::msg::Quaternion& out
+) {
+    out.w = in.w();
+    out.x = in.x();
+    out.y = in.y();
+    out.z = in.z();
+}
 
-    const auto attitude = mCraft.rotation();
-    msg.quaternion.set__w(attitude.w());
-    msg.quaternion.set__x(attitude.w());
-    msg.quaternion.set__y(attitude.y());
-    msg.quaternion.set__z(attitude.z());
+void SimSnooper::toMsg (
+    const Actuator& in,
+    adcs_msgs::msg::Actuator& out
+) {
+    out.command_poll_interval = in.commandPollInterval();
+    out.max_voltage           = in.maxVoltage();
+    out.max_current           = in.maxCurrent();
+    out.resistance            = in.resistance();
+    out.motor_constant        = in.motorConstant();
+    out.voltage               = in.voltage();
+    out.next_voltage          = in.nextVoltage();
+    out.time_to_next_poll     = in.timeToNextPoll();
+}
 
-    mCraftAttitudePub->publish(msg);
+void SimSnooper::toMsg (
+    const Magnetorquer& in,
+    adcs_msgs::msg::Magnetorquer& out
+) {
+    out.command_poll_interval = in.commandPollInterval();
+    out.max_voltage           = in.maxVoltage();
+    out.resistance            = in.resistance();
+    out.inductance            = in.inductance();
+    out.dipole_per_amp        = in.dipolePerAmp();
+    out.voltage               = in.voltage();
+    out.current               = in.current();
+    out.next_voltage          = in.nextVoltage();
+    out.time_to_next_poll     = in.timeToNextPoll();
+}
+
+void SimSnooper::toMsg (
+    const PDController<float>& in,
+    adcs_msgs::msg::PDControllerFloat& out
+) {
+    out.kp         = in.kP();
+    out.kd         = in.kD();
+    out.last_error = in.lastError();
+}
+
+void SimSnooper::toMsg (
+    const ReactionWheel& in,
+    adcs_msgs::msg::ReactionWheel& out
+) {
+    out.command_poll_interval       = in.commandPollInterval();
+    out.wheel_rotational_inertia    = in.wheelRotationalInertia();
+    out.wheel_axis                  = in.wheelAxis();
+    out.time_to_next_poll           = in.timeToNextPoll();
+    out.angular_momentum_goal       = in.angularMomentumGoal();
+    out.next_angular_momentum_error = in.nextAngularMomentumError();
+    toMsg(in.rigidbody(),          out.rigidbody);
+    toMsg(in.actuator(),           out.actuator);
+    toMsg(in.actuatorController(), out.actuator_controller);
+}
+
+void SimSnooper::toMsg (
+    const Rigidbody& in,
+    adcs_msgs::msg::Rigidbody& out
+) {
+    toMsg(static_cast<const Transform&>(in), out.transform);
+    toMsg(in.angularVelocity(),              out.angular_velocity);
+    toMsg(in.torque(),                       out.torque);
+    toMsg(in.rotationalInertia(),            out.rotational_inertia);
+}
+
+void SimSnooper::toMsg (
+    const Spacecraft& in,
+    adcs_msgs::msg::Spacecraft& out
+) {
+    toMsg(static_cast<const Rigidbody&>(in), out.rigidbody);
+    toMsg(in.rWheelX(),    out.rwheel_x);
+    toMsg(in.rWheelY(),    out.rwheel_y);
+    toMsg(in.rWheelZ(),    out.rwheel_z);
+    toMsg(in.magtorqueX(), out.magtorque_x);
+    toMsg(in.magtorqueY(), out.magtorque_y);
+    toMsg(in.magtorqueZ(), out.magtorque_z);
+}
+
+void SimSnooper::toMsg (
+    const Transform& in,
+    adcs_msgs::msg::Transform& out
+) {
+    toMsg(in.position(), out.position);
+    toMsg(in.rotation(), out.rotation);
+    toMsg(in.scale(),    out.scale);
+}
+
+void SimSnooper::publish() {
+    toMsg(mCraft, mMsg);
+    mCraftPub->publish(mMsg);
 }
 
 } // namespace adcs
