@@ -55,6 +55,7 @@ class ReactionWheel {
 public:
     const auto  commandPollInterval         () const { return mCommandPollInterval;         }
     const auto  wheelRotationalInertia      () const { return mWheelRotationalInertia;      }
+    const auto  wheelAxis                   () const { return mWheelAxis;                   }
     const auto  timeToNextPoll              () const { return mTimeToNextPoll;              }
     const auto& angularMomentumGoal         () const { return mAngularMomentumGoal;         }
     const auto& nextAngularMomentumError    () const { return mNextAngularMomentumError;    }
