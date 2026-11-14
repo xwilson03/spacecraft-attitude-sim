@@ -7,6 +7,6 @@ uint8 wheel_axis
 float32 time_to_next_poll
 float32 angular_momentum_goal
 float32 next_angular_momentum_error
-Rigidbody rigidbody
-Actuator actuator
-PDControllerFloat actuator_controller
+adcs_msgs/Rigidbody rigidbody
+adcs_msgs/Actuator actuator
+adcs_msgs/PDControllerFloat actuator_controller
