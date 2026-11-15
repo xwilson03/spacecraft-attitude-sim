@@ -1,10 +1,10 @@
+import adcs.Transform;
+
 #include <Eigen/Dense>
 #include <QOpenGLWidget>
 #include <array>
 #include <cmath>
 #include <numbers>
-
-import adcs.Transform;
 
 using Eigen::Matrix4f;
 using Eigen::Vector3f;
