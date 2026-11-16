@@ -5,6 +5,7 @@ import adcs.Transform;
 #include <Eigen/Dense>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
+#include <QOpenGLShaderProgram>
 #include <QOpenGLWidget>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -22,10 +23,8 @@ namespace adcs {
 
 void GLSimWidget::initializeGL() {
 
-    makeCurrent();
-    auto f = context()->extraFunctions();
-
     // Initialize function ptrs, set clear color, depth bit
+    auto f = context()->extraFunctions();
     f->initializeOpenGLFunctions();
     f->glClearColor(0.0, 0.0, 0.0, 1.0);
     f->glEnable(GL_DEPTH_TEST);
@@ -49,81 +48,19 @@ void GLSimWidget::initializeGL() {
 
     // Shader Data
 
-    unsigned int vertexShader, fragmentShader;
-    int compileSuccess;
-    constexpr int COMPILE_LOG_SIZE = 512;
-    char log[COMPILE_LOG_SIZE];
-
-    const char* vertexShaderSrc = R"(
-        #version 330 core
-
-        layout (location = 0) in vec3 aPos;
-        layout (location = 1) in vec3 aNormal;
-        layout (location = 2) in vec3 aColor;
-
-        out vec3 vColor;
-        uniform mat4 mvp;
-
-        void main() {
-            vColor = aColor;
-            gl_Position = mvp * vec4(aPos, 1.0);
-        }
-    )";
-
-    const char* fragmentShaderSrc = R"(
-        #version 330 core
-
-        in vec3 vColor;
-        out vec4 fColor;
-
-        void main() {
-            fColor = vec4(vColor, 1.0);
-        }
-    )";
-
-    // Initialize and compile vertex shader
-    vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
-    f->glShaderSource(vertexShader, 1, &vertexShaderSrc, NULL);
-    f->glCompileShader(vertexShader);
-    
-    f->glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &compileSuccess);
-    if (!compileSuccess) {
-        f->glGetShaderInfoLog(vertexShader, COMPILE_LOG_SIZE, NULL, log);
-        std::cout << "Vertex shader compilation failed. What: " << log << std::endl;
+    if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mCraftVertPath.string().c_str())) {
+        std::cerr << "Vertex shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
     }
-
-    // Initialize and compile fragment shader
-    fragmentShader = f->glCreateShader(GL_FRAGMENT_SHADER);
-    f->glShaderSource(fragmentShader, 1, &fragmentShaderSrc, NULL);
-    f->glCompileShader(fragmentShader);
-    
-    f->glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &compileSuccess);
-    if (!compileSuccess) {
-        f->glGetShaderInfoLog(fragmentShader, COMPILE_LOG_SIZE, NULL, log);
-        std::cout << "Fragment shader compilation failed. What: " << log << std::endl;
+    if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mCraftFragPath.string().c_str())) {
+        std::cerr << "Fragment shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
     }
-
-    // Initialize shader program
-    shaderProgram = f->glCreateProgram();
-    f->glAttachShader(shaderProgram, vertexShader);
-    f->glAttachShader(shaderProgram, fragmentShader);
-    f->glLinkProgram(shaderProgram);
-    
-    f->glGetProgramiv(shaderProgram, GL_LINK_STATUS, &compileSuccess);
-    if (!compileSuccess) {
-        f->glGetProgramInfoLog(shaderProgram, COMPILE_LOG_SIZE, NULL, log);
-        std::cout << "Shader program linking failed. What: " << log << std::endl;
+    if (!mCraftProgram.link()) {
+        std::cerr << "Shader program linking failed. What: " << mCraftProgram.log().toStdString() << std::endl;
     }
-
-    // Clean up
-    f->glDeleteShader(vertexShader);
-    f->glDeleteShader(fragmentShader);
-    doneCurrent();
 }
 
 void GLSimWidget::paintGL() {
 
-    makeCurrent();
     const auto f = context()->extraFunctions();
 
     f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -134,17 +71,17 @@ void GLSimWidget::paintGL() {
 
     mModelMatrix = mScene.model.affine().matrix();
     mViewMatrix = mScene.camera.affine().inverse().matrix();
-    mvp = mProjectionMatrix * mViewMatrix * mModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mMVPQMatrix.data()) = mProjectionMatrix * mViewMatrix * mModelMatrix;
 
     // Set shader program and update MVP matrix
-    f->glUseProgram(shaderProgram);
-    f->glUniformMatrix4fv(f->glGetUniformLocation(shaderProgram, "mvp"), 1, GL_FALSE, mvp.data());
+    mCraftProgram.bind();
+    mCraftProgram.setUniformValue("mvp", mMVPQMatrix);
 
     // Copy vertex data
     f->glBindVertexArray(mVAO);
     f->glDrawArrays(GL_TRIANGLES, 0, mVertices.size());
 
-    doneCurrent();
+    mCraftProgram.release();
 }
 
 GLSimWidget::GLSimWidget(const Scene& aScene) 
@@ -167,25 +104,30 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
 
     const std::filesystem::path dataDir {APP_RESOURCE_DIR};
     const auto assetsDir = dataDir / "assets";
-    const auto craftMesh = assetsDir / "Galileo.glb";
-    const auto planetTex = assetsDir / "HD_189733_b.jpg";
 
-    if (
-        !std::filesystem::exists(craftMesh)
-        || !std::filesystem::exists(planetTex)
-    ) {
-        std::cerr
-            << std::format(
-                "{}: Unable to locate mesh/texture assets.",
-                std::source_location::current().function_name()
-            )
-        << std::endl;
-        std::abort();
-    }
+    const auto craftMeshPath = assetsDir / "Galileo.glb";
+    mCraftVertPath           = assetsDir / "galileo.vert";
+    mCraftFragPath           = assetsDir / "galileo.frag";
+
+    const auto resourcePaths = {
+        craftMeshPath, mCraftVertPath, mCraftFragPath
+    };
+
+    for (const auto& path : resourcePaths) {
+
+        if (std::filesystem::exists(path)) {
+            std::cout << std::format("Found \"{}\".", path.string()) << "\n";
+        }
+
+        else {
+            std::cerr << std::format("Unable to locate asset: {}.", path.string()) << std::endl;
+            std::abort();
+        }
+    };
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(
-        craftMesh,
+        craftMeshPath,
         aiProcess_Triangulate
         | aiProcess_PreTransformVertices
         | aiProcess_GenSmoothNormals

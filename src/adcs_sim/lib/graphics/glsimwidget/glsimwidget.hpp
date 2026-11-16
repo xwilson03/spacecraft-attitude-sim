@@ -1,9 +1,12 @@
 import adcs.Transform;
 
 #include <Eigen/Dense>
+#include <QMatrix4x4>
+#include <QOpenGLShaderProgram>
 #include <QOpenGLWidget>
 #include <cmath>
 #include <numbers>
+#include <filesystem>
 
 using Eigen::Matrix4f;
 using Eigen::Vector3f;
@@ -30,13 +33,16 @@ class GLSimWidget : public QOpenGLWidget {
     std::vector<Vertex> mVertices;
     unsigned int mVAO;
     unsigned int mVBO;
-    unsigned int shaderProgram;
+
+    std::filesystem::path mCraftVertPath;
+    std::filesystem::path mCraftFragPath;
+    QOpenGLShaderProgram  mCraftProgram;
 
     const Scene& mScene;
     Matrix4f mModelMatrix = Matrix4f::Zero();
     Matrix4f mViewMatrix = Matrix4f::Zero();
     Matrix4f mProjectionMatrix = Matrix4f::Zero();
-    Matrix4f mvp = Matrix4f::Zero();
+    QMatrix4x4 mMVPQMatrix;
 
     const float cameraVertFovDeg = 70.0f;
     const float cameraNearPlane = 0.1f;
