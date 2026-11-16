@@ -2,7 +2,6 @@ import adcs.Transform;
 
 #include <Eigen/Dense>
 #include <QOpenGLWidget>
-#include <array>
 #include <cmath>
 #include <numbers>
 
@@ -20,17 +19,17 @@ struct Scene {
 
 struct Vertex {
     float x, y, z;
+    float nx, ny, nz;
+    float r, g, b;
 };
 
 class GLSimWidget : public QOpenGLWidget {
 
     Q_OBJECT
 
-    std::array<Vertex, 8> mVertices;
-    std::array<unsigned, 36> mIndices;
+    std::vector<Vertex> mVertices;
     unsigned int mVAO;
     unsigned int mVBO;
-    unsigned int mEBO;
     unsigned int shaderProgram;
 
     const Scene& mScene;

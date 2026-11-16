@@ -1,12 +1,18 @@
+#include "glsimwidget.hpp"
+
+import adcs.Transform;
+
 #include <Eigen/Dense>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLWidget>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <filesystem>
+#include <format>
 #include <iostream>
-
-#include "glsimwidget.hpp"
-
-import adcs.Transform;
+#include <source_location>
 
 using Eigen::Matrix4f;
 using Eigen::Vector3f;
@@ -31,14 +37,14 @@ void GLSimWidget::initializeGL() {
     
     f->glGenBuffers(1, &mVBO);
     f->glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-    f->glBufferData(GL_ARRAY_BUFFER, sizeof(mVertices), mVertices.data(), GL_STATIC_DRAW);
+    f->glBufferData(GL_ARRAY_BUFFER, mVertices.size() * sizeof(Vertex), mVertices.data(), GL_STATIC_DRAW);
 
-    f->glGenBuffers(1, &mEBO);
-    f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
-    f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(mIndices), mIndices.data(), GL_STATIC_DRAW);
-
-    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, x));
+    f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, nx));
+    f->glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, r));
     f->glEnableVertexAttribArray(0);
+    f->glEnableVertexAttribArray(1);
+    f->glEnableVertexAttribArray(2);
 
 
     // Shader Data
@@ -50,19 +56,28 @@ void GLSimWidget::initializeGL() {
 
     const char* vertexShaderSrc = R"(
         #version 330 core
+
         layout (location = 0) in vec3 aPos;
+        layout (location = 1) in vec3 aNormal;
+        layout (location = 2) in vec3 aColor;
+
+        out vec3 vColor;
         uniform mat4 mvp;
 
         void main() {
+            vColor = aColor;
             gl_Position = mvp * vec4(aPos, 1.0);
         }
     )";
 
     const char* fragmentShaderSrc = R"(
         #version 330 core
-        out vec4 color;
+
+        in vec3 vColor;
+        out vec4 fColor;
+
         void main() {
-            color = vec4(1.0, 1.0, 1.0, 1.0);
+            fColor = vec4(vColor, 1.0);
         }
     )";
 
@@ -127,7 +142,7 @@ void GLSimWidget::paintGL() {
 
     // Copy vertex data
     f->glBindVertexArray(mVAO);
-    f->glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, 0);
+    f->glDrawArrays(GL_TRIANGLES, 0, mVertices.size());
 
     doneCurrent();
 }
@@ -148,45 +163,61 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
     mProjectionMatrix(2, 3) = cameraFarPlane * 2.0f * (cameraNearPlane / (cameraFarPlane - cameraNearPlane) * -1);  //    near plane to -1 and far to +1
     mProjectionMatrix(3, 2) = -1.0f;                                                                                // divide all by -z for perspective scaling
 
-    // Vertex Data
-    int i = 0;
-    for (const auto x: {-0.5f, 0.5f}) {
-        for (const auto y: {0.5f, -0.5f}) {
-            for (const auto z: {0.5f, -0.5f}) {
-                mVertices[i++] = {x, y, z};
+    // Import Asset Data
+
+    const std::filesystem::path dataDir {APP_RESOURCE_DIR};
+    const auto assetsDir = dataDir / "assets";
+    const auto craftMesh = assetsDir / "Galileo.glb";
+    const auto planetTex = assetsDir / "HD_189733_b.jpg";
+
+    if (
+        !std::filesystem::exists(craftMesh)
+        || !std::filesystem::exists(planetTex)
+    ) {
+        std::cerr
+            << std::format(
+                "{}: Unable to locate mesh/texture assets.",
+                std::source_location::current().function_name()
+            )
+        << std::endl;
+        std::abort();
+    }
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(
+        craftMesh,
+        aiProcess_Triangulate
+        | aiProcess_PreTransformVertices
+        | aiProcess_GenSmoothNormals
+        | aiProcess_FlipWindingOrder
+    );
+
+    if (!scene || !scene->mRootNode) {
+        std::cerr
+            << std::format(
+                "{}: Failed during import of mesh/texture assets.",
+                std::source_location::current().function_name()
+            )
+        << std::endl;
+        std::abort();
+    }
+
+    for (unsigned m = 0; m < scene->mNumMeshes; m++) {
+        const aiMesh* mesh = scene->mMeshes[m];
+        aiColor4D color;
+        scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+        for (unsigned f = 0; f < mesh->mNumFaces; f++) {
+            for (unsigned v = 0; v < 3; v++) {
+                const aiVector3D& vertex = mesh->mVertices[mesh->mFaces[f].mIndices[v]];
+                const aiVector3D& normal = mesh->mNormals[mesh->mFaces[f].mIndices[v]];
+                mVertices.push_back({
+                    vertex.x, vertex.y, vertex.z,
+                    normal.x, normal.y, normal.z,
+                    color.r, color.g, color.b
+                });
             }
         }
     }
-
-    // 0 = top left front
-    // +1 = front -> back
-    // +2 = top -> bottom
-    // +4 = left -> right
-    mIndices = {
-        // front
-        0u, 2u, 6u,
-        0u, 4u, 6u,
-
-        // left
-        1u, 3u, 2u,
-        1u, 0u, 2u,
-
-        // right
-        4u, 6u, 7u,
-        4u, 5u, 7u,
-
-        // back
-        5u, 7u, 3u,
-        5u, 1u, 3u,
-
-        // top
-        1u, 0u, 4u,
-        1u, 5u, 4u,
-
-        // bottom
-        2u, 3u, 7u,
-        2u, 6u, 7u,
-    };
 }
 
 } // namespace adcs
