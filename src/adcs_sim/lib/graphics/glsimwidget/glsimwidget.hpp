@@ -2,11 +2,13 @@ import adcs.Transform;
 
 #include <Eigen/Dense>
 #include <QMatrix4x4>
+#include <QOpenGLBuffer>
 #include <QOpenGLShaderProgram>
+#include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <cmath>
-#include <numbers>
 #include <filesystem>
+#include <numbers>
 
 using Eigen::Matrix4f;
 using Eigen::Vector3f;
@@ -31,8 +33,8 @@ class GLSimWidget : public QOpenGLWidget {
     Q_OBJECT
 
     std::vector<Vertex> mVertices;
-    unsigned int mVAO;
-    unsigned int mVBO;
+    QOpenGLVertexArrayObject mVAO;
+    QOpenGLBuffer mVBO {QOpenGLBuffer::VertexBuffer};
 
     std::filesystem::path mCraftVertPath;
     std::filesystem::path mCraftFragPath;

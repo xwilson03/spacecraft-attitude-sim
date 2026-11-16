@@ -3,9 +3,11 @@
 import adcs.Transform;
 
 #include <Eigen/Dense>
+#include <QOpenGLBuffer>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLShaderProgram>
+#include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -29,25 +31,15 @@ void GLSimWidget::initializeGL() {
     f->glClearColor(0.0, 0.0, 0.0, 1.0);
     f->glEnable(GL_DEPTH_TEST);
 
-
     // Initialize vertex data containers
-    f->glGenVertexArrays(1, &mVAO);
-    f->glBindVertexArray(mVAO);
-    
-    f->glGenBuffers(1, &mVBO);
-    f->glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-    f->glBufferData(GL_ARRAY_BUFFER, mVertices.size() * sizeof(Vertex), mVertices.data(), GL_STATIC_DRAW);
+    mVAO.create();
+    QOpenGLVertexArrayObject::Binder vaoBinder(&mVAO);
 
-    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, x));
-    f->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, nx));
-    f->glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) offsetof(Vertex, r));
-    f->glEnableVertexAttribArray(0);
-    f->glEnableVertexAttribArray(1);
-    f->glEnableVertexAttribArray(2);
+    mVBO.create();
+    mVBO.bind();
+    mVBO.allocate(mVertices.data(), mVertices.size() * sizeof(Vertex));
 
-
-    // Shader Data
-
+    // Compile shaders
     if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mCraftVertPath.string().c_str())) {
         std::cerr << "Vertex shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
     }
@@ -57,6 +49,13 @@ void GLSimWidget::initializeGL() {
     if (!mCraftProgram.link()) {
         std::cerr << "Shader program linking failed. What: " << mCraftProgram.log().toStdString() << std::endl;
     }
+
+    mCraftProgram.enableAttributeArray(0);
+    mCraftProgram.enableAttributeArray(1);
+    mCraftProgram.enableAttributeArray(2);
+    mCraftProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(Vertex, x),  3, sizeof(Vertex));
+    mCraftProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(Vertex, nx), 3, sizeof(Vertex));
+    mCraftProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(Vertex, r),  3, sizeof(Vertex));
 }
 
 void GLSimWidget::paintGL() {
@@ -78,7 +77,7 @@ void GLSimWidget::paintGL() {
     mCraftProgram.setUniformValue("mvp", mMVPQMatrix);
 
     // Copy vertex data
-    f->glBindVertexArray(mVAO);
+    QOpenGLVertexArrayObject::Binder vaoBinder(&mVAO);
     f->glDrawArrays(GL_TRIANGLES, 0, mVertices.size());
 
     mCraftProgram.release();
@@ -135,12 +134,10 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
     );
 
     if (!scene || !scene->mRootNode) {
-        std::cerr
-            << std::format(
-                "{}: Failed during import of mesh/texture assets.",
-                std::source_location::current().function_name()
-            )
-        << std::endl;
+        std::cerr << std::format(
+            "{}: Failed during import of mesh/texture assets.",
+            std::source_location::current().function_name()
+        ) << std::endl;
         std::abort();
     }
 
