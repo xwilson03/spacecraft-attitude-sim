@@ -30,12 +30,12 @@ void GLSimWidget::initializeGL() {
     glEnable(GL_DEPTH_TEST);
 
     // Initialize vertex data containers
-    mVAO.create();
-    QOpenGLVertexArrayObject::Binder vaoBinder(&mVAO);
+    mCraftVAO.create();
+    QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
 
-    mVBO.create();
-    mVBO.bind();
-    mVBO.allocate(mVertices.data(), mVertices.size() * sizeof(Vertex));
+    mCraftVBO.create();
+    mCraftVBO.bind();
+    mCraftVBO.allocate(mCraftVertices.data(), mCraftVertices.size() * sizeof(Vertex));
 
     // Compile shaders
     if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mCraftVertPath.string().c_str())) {
@@ -64,17 +64,17 @@ void GLSimWidget::paintGL() {
     const auto aspectRatio = static_cast<float>(width()) / static_cast<float>(height());
     mProjectionMatrix(0, 0) = focalDistance / aspectRatio;
 
-    mModelMatrix = mScene.model.affine().matrix();
+    mCraftModelMatrix = mScene.craft.affine().matrix();
     mViewMatrix = mScene.camera.affine().inverse().matrix();
-    Eigen::Map<Eigen::Matrix4f>(mMVPQMatrix.data()) = mProjectionMatrix * mViewMatrix * mModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mCraftMVPQMatrix.data()) = mProjectionMatrix * mViewMatrix * mCraftModelMatrix;
 
     // Set shader program and update MVP matrix
     mCraftProgram.bind();
-    mCraftProgram.setUniformValue("mvp", mMVPQMatrix);
+    mCraftProgram.setUniformValue("mvp", mCraftMVPQMatrix);
 
     // Copy vertex data
-    QOpenGLVertexArrayObject::Binder vaoBinder(&mVAO);
-    glDrawArrays(GL_TRIANGLES, 0, mVertices.size());
+    QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
+    glDrawArrays(GL_TRIANGLES, 0, mCraftVertices.size());
 
     mCraftProgram.release();
 }
@@ -145,7 +145,7 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
             for (unsigned v = 0; v < 3; v++) {
                 const aiVector3D& vertex = mesh->mVertices[mesh->mFaces[f].mIndices[v]];
                 const aiVector3D& normal = mesh->mNormals[mesh->mFaces[f].mIndices[v]];
-                mVertices.push_back({
+                mCraftVertices.push_back({
                     vertex.x, vertex.y, vertex.z,
                     normal.x, normal.y, normal.z,
                     color.r, color.g, color.b

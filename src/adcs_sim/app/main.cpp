@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     Scene scene {
         .camera = camera,
-        .model = craft
+        .craft = craft
     };
 
     // App Setup
