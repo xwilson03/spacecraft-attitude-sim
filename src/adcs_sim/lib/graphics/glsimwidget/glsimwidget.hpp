@@ -3,6 +3,7 @@ import adcs.Transform;
 #include <Eigen/Dense>
 #include <QMatrix4x4>
 #include <QOpenGLBuffer>
+#include <QOpenGLExtraFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
@@ -28,7 +29,7 @@ struct Vertex {
     float r, g, b;
 };
 
-class GLSimWidget : public QOpenGLWidget {
+class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
 
     Q_OBJECT
 

@@ -5,7 +5,6 @@ import adcs.Transform;
 #include <Eigen/Dense>
 #include <QOpenGLBuffer>
 #include <QOpenGLContext>
-#include <QOpenGLExtraFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
@@ -26,10 +25,9 @@ namespace adcs {
 void GLSimWidget::initializeGL() {
 
     // Initialize function ptrs, set clear color, depth bit
-    auto f = context()->extraFunctions();
-    f->initializeOpenGLFunctions();
-    f->glClearColor(0.0, 0.0, 0.0, 1.0);
-    f->glEnable(GL_DEPTH_TEST);
+    initializeOpenGLFunctions();
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glEnable(GL_DEPTH_TEST);
 
     // Initialize vertex data containers
     mVAO.create();
@@ -60,9 +58,7 @@ void GLSimWidget::initializeGL() {
 
 void GLSimWidget::paintGL() {
 
-    const auto f = context()->extraFunctions();
-
-    f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Recalculate mvp in case aspect ratio or model transform changed
     const auto aspectRatio = static_cast<float>(width()) / static_cast<float>(height());
@@ -78,7 +74,7 @@ void GLSimWidget::paintGL() {
 
     // Copy vertex data
     QOpenGLVertexArrayObject::Binder vaoBinder(&mVAO);
-    f->glDrawArrays(GL_TRIANGLES, 0, mVertices.size());
+    glDrawArrays(GL_TRIANGLES, 0, mVertices.size());
 
     mCraftProgram.release();
 }
