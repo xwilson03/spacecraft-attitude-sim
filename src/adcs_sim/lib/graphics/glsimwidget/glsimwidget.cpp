@@ -22,6 +22,49 @@ using Eigen::Vector3f;
 
 namespace adcs {
 
+TexVertex GLSimWidget::createSphereVertex (
+    const float phi,
+    const float theta
+) {
+    const float x = std::sin(theta) * std::cos(phi);
+    const float y = std::cos(theta);
+    const float z = std::sin(theta) * std::sin(phi);
+    return {
+        x, y, z,
+        x, y, z,
+        1.0f - phi / (2.0f * adcs::pi),
+        theta / adcs::pi
+    };
+}
+
+std::vector<TexVertex> GLSimWidget::createSphereVertices (
+    const unsigned resolution
+) {
+    const float deltaPhi = 2 * pi / resolution;
+    const float deltaTheta = pi / resolution;
+
+    std::vector<TexVertex> vertices;
+    vertices.reserve(resolution * resolution * 6);
+    for (unsigned x = 0; x < resolution; x++) {
+        for (unsigned y = 0; y < resolution; y++) {
+
+            const float phi1 = deltaPhi * x;
+            const float phi2 = deltaPhi * (x + 1);
+            const float theta1 = deltaTheta * y;
+            const float theta2 = deltaTheta * (y + 1);
+
+            const auto a = createSphereVertex(phi1, theta1);
+            const auto b = createSphereVertex(phi1, theta2);
+            const auto c = createSphereVertex(phi2, theta2);
+            const auto d = createSphereVertex(phi2, theta1);
+
+            vertices.insert(vertices.end(), {a, b, c, a, c, d});
+        }
+    }
+
+    return vertices;
+}
+
 void GLSimWidget::initializeGL() {
 
     // Initialize function ptrs, set clear color, depth bit
@@ -29,31 +72,67 @@ void GLSimWidget::initializeGL() {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glEnable(GL_DEPTH_TEST);
 
-    // Initialize vertex data containers
-    mCraftVAO.create();
-    QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
+    // Initialize craft object
+    {
+        mCraftVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
 
-    mCraftVBO.create();
-    mCraftVBO.bind();
-    mCraftVBO.allocate(mCraftVertices.data(), mCraftVertices.size() * sizeof(Vertex));
+        mCraftVBO.create();
+        mCraftVBO.bind();
+        mCraftVBO.allocate(mCraftVertices.data(), mCraftVertices.size() * sizeof(Vertex));
 
-    // Compile shaders
-    if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mCraftVertPath.string().c_str())) {
-        std::cerr << "Vertex shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
-    }
-    if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mCraftFragPath.string().c_str())) {
-        std::cerr << "Fragment shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
-    }
-    if (!mCraftProgram.link()) {
-        std::cerr << "Shader program linking failed. What: " << mCraftProgram.log().toStdString() << std::endl;
+        // Compile shaders
+        if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mCraftVertPath.string().c_str())) {
+            std::cerr << "Craft vertex shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
+        }
+        if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mCraftFragPath.string().c_str())) {
+            std::cerr << "Craft fragment shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
+        }
+        if (!mCraftProgram.link()) {
+            std::cerr << "Craft shader program linking failed. What: " << mCraftProgram.log().toStdString() << std::endl;
+        }
+
+        mCraftProgram.enableAttributeArray(0);
+        mCraftProgram.enableAttributeArray(1);
+        mCraftProgram.enableAttributeArray(2);
+        mCraftProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(Vertex, x),  3, sizeof(Vertex));
+        mCraftProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(Vertex, nx), 3, sizeof(Vertex));
+        mCraftProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(Vertex, r),  3, sizeof(Vertex));
     }
 
-    mCraftProgram.enableAttributeArray(0);
-    mCraftProgram.enableAttributeArray(1);
-    mCraftProgram.enableAttributeArray(2);
-    mCraftProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(Vertex, x),  3, sizeof(Vertex));
-    mCraftProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(Vertex, nx), 3, sizeof(Vertex));
-    mCraftProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(Vertex, r),  3, sizeof(Vertex));
+    // Initialize planet object
+    {
+        mPlanetVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
+
+        mPlanetVBO.create();
+        mPlanetVBO.bind();
+        mPlanetVBO.allocate(mPlanetVertices.data(), mPlanetVertices.size() * sizeof(TexVertex));
+
+        // Compile shaders
+        if (!mPlanetProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mPlanetVertPath.string().c_str())) {
+            std::cerr << "Planet vertex shader compilation failed. What: " << mPlanetProgram.log().toStdString() << std::endl;
+        }
+        if (!mPlanetProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mPlanetFragPath.string().c_str())) {
+            std::cerr << "Planet fragment shader compilation failed. What: " << mPlanetProgram.log().toStdString() << std::endl;
+        }
+        if (!mPlanetProgram.link()) {
+            std::cerr << "Planet shader program linking failed. What: " << mPlanetProgram.log().toStdString() << std::endl;
+        }
+
+        mPlanetProgram.enableAttributeArray(0);
+        mPlanetProgram.enableAttributeArray(1);
+        mPlanetProgram.enableAttributeArray(2);
+        mPlanetProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(TexVertex, x),  3, sizeof(TexVertex));
+        mPlanetProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(TexVertex, nx), 3, sizeof(TexVertex));
+        mPlanetProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(TexVertex, u),  2, sizeof(TexVertex));
+
+        mPlanetTex.setData(mPlanetImage, QOpenGLTexture::GenerateMipMaps);
+        mPlanetTex.setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+        mPlanetTex.setMagnificationFilter(QOpenGLTexture::Linear);
+        mPlanetTex.setWrapMode(QOpenGLTexture::DirectionS, QOpenGLTexture::Repeat);
+        mPlanetTex.setWrapMode(QOpenGLTexture::DirectionT, QOpenGLTexture::ClampToEdge);
+    }
 }
 
 void GLSimWidget::paintGL() {
@@ -65,18 +144,40 @@ void GLSimWidget::paintGL() {
     mProjectionMatrix(0, 0) = focalDistance / aspectRatio;
 
     mCraftModelMatrix = mScene.craft.affine().matrix();
+    mPlanetModelMatrix = mScene.planet.affine().matrix();
     mViewMatrix = mScene.camera.affine().inverse().matrix();
     Eigen::Map<Eigen::Matrix4f>(mCraftMVPQMatrix.data()) = mProjectionMatrix * mViewMatrix * mCraftModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mPlanetMVPQMatrix.data()) = mProjectionMatrix * mViewMatrix * mPlanetModelMatrix;
 
-    // Set shader program and update MVP matrix
-    mCraftProgram.bind();
-    mCraftProgram.setUniformValue("mvp", mCraftMVPQMatrix);
+    // Draw Planet
+    {
+        // Set shader program and update MVP matrix
+        mPlanetProgram.bind();
+        mPlanetProgram.setUniformValue("aMVP", mPlanetMVPQMatrix);
 
-    // Copy vertex data
-    QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
-    glDrawArrays(GL_TRIANGLES, 0, mCraftVertices.size());
+        // Bind texture
+        mPlanetTex.bind();
 
-    mCraftProgram.release();
+        // Copy vertex data
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
+        glDrawArrays(GL_TRIANGLES, 0, mPlanetVertices.size());
+
+        mPlanetTex.release();
+        mPlanetProgram.release();
+    }
+
+    // Draw Spacecraft
+    {
+        // Set shader program and update MVP matrix
+        mCraftProgram.bind();
+        mCraftProgram.setUniformValue("mvp", mCraftMVPQMatrix);
+
+        // Copy vertex data
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
+        glDrawArrays(GL_TRIANGLES, 0, mCraftVertices.size());
+
+        mCraftProgram.release();
+    }
 }
 
 GLSimWidget::GLSimWidget(const Scene& aScene) 
@@ -104,8 +205,13 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
     mCraftVertPath           = assetsDir / "galileo.vert";
     mCraftFragPath           = assetsDir / "galileo.frag";
 
+    const auto planetImagePath = assetsDir / "HD_189733_b.jpg";
+    mPlanetVertPath            = assetsDir / "HD_189733_b.vert";
+    mPlanetFragPath            = assetsDir / "HD_189733_b.frag";
+
     const auto resourcePaths = {
-        craftMeshPath, mCraftVertPath, mCraftFragPath
+        craftMeshPath, mCraftVertPath, mCraftFragPath,
+        planetImagePath, mPlanetVertPath, mPlanetFragPath
     };
 
     for (const auto& path : resourcePaths) {
@@ -153,6 +259,9 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
             }
         }
     }
+
+    mPlanetVertices = createSphereVertices(128);
+    mPlanetImage = QImage(planetImagePath.string().c_str());
 }
 
 } // namespace adcs

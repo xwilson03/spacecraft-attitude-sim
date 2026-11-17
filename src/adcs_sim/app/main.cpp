@@ -31,9 +31,14 @@ int main(int argc, char* argv[]) {
     craft.setRotationalInertia( Vector3f(4454.7f, 4061.2f, 5967.6f) ); // kgm^2. Galileo's pre-launch values (https://arxiv.org/pdf/gr-qc/0104064 section F.1)
     craft.setAngularVelocity( Vector3f(pi / 10.0f, 0.01f, 0.01f) );    // rad/s. Galileo spun at 3rpm around its major axis; we'll spin around the intermediate.
 
+    Rigidbody planet;
+    planet.setPosition( Vector3f(-5.0f, -5.0f, -5.0f) );
+    planet.setAngularVelocity( Vector3f(0.1f, 0.1f, 0.1f) );
+
     Scene scene {
         .camera = camera,
-        .craft = craft
+        .craft = craft,
+        .planet = planet
     };
 
     // App Setup
@@ -49,6 +54,7 @@ int main(int argc, char* argv[]) {
         const float deltaTime = 1e-3f;
         absoluteTime += deltaTime;
         craft.step(absoluteTime, deltaTime);
+        planet.step(deltaTime);
         snooper->publish();
     });
     physics.start(1);
