@@ -32,8 +32,9 @@ int main(int argc, char* argv[]) {
     craft.setAngularVelocity( Vector3f(pi / 10.0f, 0.01f, 0.01f) );    // rad/s. Galileo spun at 3rpm around its major axis; we'll spin around the intermediate.
 
     Rigidbody planet;
-    planet.setPosition( Vector3f(-5.0f, -5.0f, -5.0f) );
-    planet.setAngularVelocity( Vector3f(0.1f, 0.1f, 0.1f) );
+    planet.setRotation( Vector3f(-45.0f, 0.0f, 15.0f) * pi / 180.0f );
+    planet.setPosition( Vector3f(5.5f, 4.0f, 4.5f) );
+    planet.setAngularVelocity( Vector3f(0.f, -0.01f, 0.0f) );
 
     Scene scene {
         .camera = camera,
