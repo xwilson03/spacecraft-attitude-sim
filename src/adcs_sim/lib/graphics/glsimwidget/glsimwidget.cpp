@@ -71,6 +71,7 @@ void GLSimWidget::initializeGL() {
     initializeOpenGLFunctions();
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     // Initialize craft object
     {
@@ -158,9 +159,12 @@ void GLSimWidget::paintGL() {
         // Bind texture
         mPlanetTex.bind();
 
-        // Copy vertex data
+        // Bind and render mesh
         QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
         glDrawArrays(GL_TRIANGLES, 0, mPlanetVertices.size());
+
+        // Force planet into background
+        glClear(GL_DEPTH_BUFFER_BIT);
 
         mPlanetTex.release();
         mPlanetProgram.release();
@@ -172,9 +176,12 @@ void GLSimWidget::paintGL() {
         mCraftProgram.bind();
         mCraftProgram.setUniformValue("mvp", mCraftMVPQMatrix);
 
-        // Copy vertex data
+        // Bind and render mesh without culling
         QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
+        
+        glDisable(GL_CULL_FACE);
         glDrawArrays(GL_TRIANGLES, 0, mCraftVertices.size());
+        glEnable(GL_CULL_FACE);
 
         mCraftProgram.release();
     }
