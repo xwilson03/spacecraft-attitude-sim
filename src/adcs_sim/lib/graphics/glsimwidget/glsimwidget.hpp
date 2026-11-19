@@ -14,7 +14,6 @@ import adcs.Transform;
 #include <numbers>
 
 using Eigen::Matrix4f;
-using Eigen::Vector3f;
 using adcs::Transform;
 
 
@@ -40,6 +39,11 @@ struct TexVertex {
     float u, v;
 };
 
+struct Star {
+    float x, y, z;
+    float size, tint;
+};
+
 class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
 
     Q_OBJECT
@@ -48,13 +52,11 @@ class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
     std::vector<Vertex> mCraftVertices;
     QOpenGLVertexArrayObject mCraftVAO;
     QOpenGLBuffer mCraftVBO {QOpenGLBuffer::VertexBuffer};
+    QMatrix4x4 mCraftMVPMatrix;
 
     std::filesystem::path mCraftVertPath;
     std::filesystem::path mCraftFragPath;
     QOpenGLShaderProgram  mCraftProgram;
-
-    Matrix4f mCraftModelMatrix = Matrix4f::Zero();
-    QMatrix4x4 mCraftMVPQMatrix;
 
     // Planet
     std::vector<TexVertex> mPlanetVertices;
@@ -62,18 +64,25 @@ class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
     QOpenGLBuffer mPlanetVBO {QOpenGLBuffer::VertexBuffer};
     QOpenGLTexture mPlanetTex {QOpenGLTexture::Target2D};
     QImage mPlanetImage;
+    QMatrix4x4 mPlanetMVPMatrix;
 
     std::filesystem::path mPlanetVertPath;
     std::filesystem::path mPlanetFragPath;
     QOpenGLShaderProgram  mPlanetProgram;
 
-    Matrix4f mPlanetModelMatrix = Matrix4f::Zero();
-    QMatrix4x4 mPlanetMVPQMatrix;
+    // Stars
+    std::vector<Star> mStars;
+    QOpenGLVertexArrayObject mStarsVAO;
+    QOpenGLBuffer mStarsVBO {QOpenGLBuffer::VertexBuffer};
+    QMatrix4x4 mStarsMVPMatrix;
+
+    std::filesystem::path mStarsVertPath;
+    std::filesystem::path mStarsFragPath;
+    QOpenGLShaderProgram  mStarsProgram;
 
     // Camera & Scene
     const Scene& mScene;
-    Matrix4f mViewMatrix = Matrix4f::Zero();
-    Matrix4f mProjectionMatrix = Matrix4f::Zero();
+    Matrix4f mProjectionMatrix;
 
     const float cameraVertFovDeg = 70.0f;
     const float cameraNearPlane = 0.1f;
@@ -84,6 +93,7 @@ class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
 
     TexVertex createSphereVertex (const float phi, const float theta);
     std::vector<TexVertex> createSphereVertices (const unsigned resolution);
+    std::vector<Star> createStars (const unsigned count, const unsigned seed);
 
     void initializeGL() override;
     void paintGL() override;
