@@ -253,7 +253,7 @@ void GLSimWidget::paintGL() {
     {
         // Set shader program and update MVP matrix
         mCraftProgram.bind();
-        mCraftProgram.setUniformValue("mvp", mCraftMVPMatrix);
+        mCraftProgram.setUniformValue("aMVP", mCraftMVPMatrix);
 
         // Bind and render mesh without culling
         QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);

@@ -5,9 +5,9 @@ layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec3 aColor;
 
 out vec3 vColor;
-uniform mat4 mvp;
+uniform mat4 aMVP;
 
 void main() {
     vColor = aColor;
-    gl_Position = mvp * vec4(aPos, 1.0);
+    gl_Position = aMVP * vec4(aPos, 1.0);
 }
