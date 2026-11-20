@@ -276,7 +276,7 @@ void GLSimWidget::paintGL() {
     starsModelMatrix.block<3, 1>(0, 3) = mScene.camera.affine().translation();
 
     Matrix4f atmoScaleMatrix = Matrix4f::Identity();
-    atmoScaleMatrix.topLeftCorner<3,3>() *= 1.1f; // dont scale w component! otherwise it re-normalizes
+    atmoScaleMatrix.topLeftCorner<3,3>() *= 1.05f; // dont scale w component! otherwise it re-normalizes
     const Matrix4f atmoModelMatrix = planetModelMatrix * atmoScaleMatrix;
 
     Eigen::Map<Eigen::Matrix4f>(mCraftMVPMatrix.data()) = mProjectionMatrix * viewMatrix * craftModelMatrix;
