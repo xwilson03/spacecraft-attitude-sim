@@ -1,135 +1,361 @@
-#include <Eigen/Dense>
-#include <QOpenGLContext>
-#include <QOpenGLExtraFunctions>
-#include <QOpenGLWidget>
-#include <iostream>
-
 #include "glsimwidget.hpp"
 
 import adcs.Transform;
 
+#include <Eigen/Dense>
+#include <QOpenGLBuffer>
+#include <QOpenGLContext>
+#include <QOpenGLShaderProgram>
+#include <QOpenGLVertexArrayObject>
+#include <QOpenGLWidget>
+#include <QVector3D>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <filesystem>
+#include <format>
+#include <iostream>
+#include <random>
+#include <source_location>
+
+using Eigen::Affine3f;
 using Eigen::Matrix4f;
 using Eigen::Vector3f;
 
 
 namespace adcs {
 
+TexVertex GLSimWidget::createSphereVertex (
+    const float phi,
+    const float theta
+) {
+    const float x = std::sin(theta) * std::cos(phi);
+    const float y = std::cos(theta);
+    const float z = std::sin(theta) * std::sin(phi);
+    return {
+        x, y, z,
+        x, y, z,
+        phi / (2.0f * pi),
+        theta / pi
+    };
+}
+
+std::vector<TexVertex> GLSimWidget::createSphereVertices (
+    const unsigned resolution
+) {
+    const float deltaPhi = 2 * pi / resolution;
+    const float deltaTheta = pi / resolution;
+
+    std::vector<TexVertex> vertices;
+    vertices.reserve(resolution * resolution * 6);
+    for (unsigned x = 0; x < resolution; x++) {
+        for (unsigned y = 0; y < resolution; y++) {
+
+            const float phi1 = deltaPhi * x;
+            const float phi2 = deltaPhi * (x + 1);
+            const float theta1 = deltaTheta * y;
+            const float theta2 = deltaTheta * (y + 1);
+
+            const auto a = createSphereVertex(phi1, theta1);
+            const auto b = createSphereVertex(phi1, theta2);
+            const auto c = createSphereVertex(phi2, theta2);
+            const auto d = createSphereVertex(phi2, theta1);
+
+            vertices.insert(vertices.end(), {a, c, b, a, d, c});
+        }
+    }
+
+    return vertices;
+}
+
+SimpleVertex GLSimWidget::createSimpleSphereVertex (
+    const float phi,
+    const float theta
+) {
+    const float x = std::sin(theta) * std::cos(phi);
+    const float y = std::cos(theta);
+    const float z = std::sin(theta) * std::sin(phi);
+    return { x, y, z };
+}
+
+std::vector<SimpleVertex> GLSimWidget::createSimpleSphereVertices (
+    const unsigned resolution
+) {
+    const float deltaPhi = 2 * pi / resolution;
+    const float deltaTheta = pi / resolution;
+
+    std::vector<SimpleVertex> vertices;
+    vertices.reserve(resolution * resolution * 6);
+    for (unsigned x = 0; x < resolution; x++) {
+        for (unsigned y = 0; y < resolution; y++) {
+
+            const float phi1 = deltaPhi * x;
+            const float phi2 = deltaPhi * (x + 1);
+            const float theta1 = deltaTheta * y;
+            const float theta2 = deltaTheta * (y + 1);
+
+            const auto a = createSimpleSphereVertex(phi1, theta1);
+            const auto b = createSimpleSphereVertex(phi1, theta2);
+            const auto c = createSimpleSphereVertex(phi2, theta2);
+            const auto d = createSimpleSphereVertex(phi2, theta1);
+
+            vertices.insert(vertices.end(), {a, c, b, a, d, c});
+        }
+    }
+
+    return vertices;
+}
+
+std::vector<Star> GLSimWidget::createStars (
+    const unsigned count,
+    const unsigned seed
+) {
+    std::mt19937 generator (seed);
+    std::uniform_real_distribution<float> distribution (0.0f, 1.0f);
+
+    std::vector<Star> stars;
+    stars.reserve(count);
+    for (unsigned i = 0; i < count; i++) {
+
+        const float phi   = 2 * pi * distribution(generator);
+        const float theta = 2 * pi * distribution(generator);
+
+        const float x = std::sin(theta) * std::cos(phi);
+        const float y = std::cos(theta);
+        const float z = std::sin(theta) * std::sin(phi);
+
+        const float size = std::pow(distribution(generator), 4.0f) * 12.5f;
+        const float tint = std::pow(distribution(generator), 4.0f);
+
+        stars.push_back({x, y, z, size, tint});
+    }
+    return stars;
+}
+
+
 void GLSimWidget::initializeGL() {
 
-    makeCurrent();
-    auto f = context()->extraFunctions();
-
     // Initialize function ptrs, set clear color, depth bit
-    f->initializeOpenGLFunctions();
-    f->glClearColor(0.0, 0.0, 0.0, 1.0);
-    f->glEnable(GL_DEPTH_TEST);
+    initializeOpenGLFunctions();
+    glClearColor(0.0, 0.0, 0.0, 1.0);
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
-    // Initialize vertex data containers
-    f->glGenVertexArrays(1, &mVAO);
-    f->glBindVertexArray(mVAO);
-    
-    f->glGenBuffers(1, &mVBO);
-    f->glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-    f->glBufferData(GL_ARRAY_BUFFER, sizeof(mVertices), mVertices.data(), GL_STATIC_DRAW);
+    // Initialize craft object
+    {
+        mCraftVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
 
-    f->glGenBuffers(1, &mEBO);
-    f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
-    f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(mIndices), mIndices.data(), GL_STATIC_DRAW);
+        mCraftVBO.create();
+        mCraftVBO.bind();
+        mCraftVBO.allocate(mCraftVertices.data(), mCraftVertices.size() * sizeof(Vertex));
 
-    f->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
-    f->glEnableVertexAttribArray(0);
-
-
-    // Shader Data
-
-    unsigned int vertexShader, fragmentShader;
-    int compileSuccess;
-    constexpr int COMPILE_LOG_SIZE = 512;
-    char log[COMPILE_LOG_SIZE];
-
-    const char* vertexShaderSrc = R"(
-        #version 330 core
-        layout (location = 0) in vec3 aPos;
-        uniform mat4 mvp;
-
-        void main() {
-            gl_Position = mvp * vec4(aPos, 1.0);
+        // Compile shaders
+        if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mCraftVertPath.string().c_str())) {
+            std::cerr << "Craft vertex shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
         }
-    )";
-
-    const char* fragmentShaderSrc = R"(
-        #version 330 core
-        out vec4 color;
-        void main() {
-            color = vec4(1.0, 1.0, 1.0, 1.0);
+        if (!mCraftProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mCraftFragPath.string().c_str())) {
+            std::cerr << "Craft fragment shader compilation failed. What: " << mCraftProgram.log().toStdString() << std::endl;
         }
-    )";
+        if (!mCraftProgram.link()) {
+            std::cerr << "Craft shader program linking failed. What: " << mCraftProgram.log().toStdString() << std::endl;
+        }
 
-    // Initialize and compile vertex shader
-    vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
-    f->glShaderSource(vertexShader, 1, &vertexShaderSrc, NULL);
-    f->glCompileShader(vertexShader);
-    
-    f->glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &compileSuccess);
-    if (!compileSuccess) {
-        f->glGetShaderInfoLog(vertexShader, COMPILE_LOG_SIZE, NULL, log);
-        std::cout << "Vertex shader compilation failed. What: " << log << std::endl;
+        mCraftProgram.enableAttributeArray(0);
+        mCraftProgram.enableAttributeArray(1);
+        mCraftProgram.enableAttributeArray(2);
+        mCraftProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(Vertex, x),  3, sizeof(Vertex));
+        mCraftProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(Vertex, nx), 3, sizeof(Vertex));
+        mCraftProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(Vertex, r),  3, sizeof(Vertex));
     }
 
-    // Initialize and compile fragment shader
-    fragmentShader = f->glCreateShader(GL_FRAGMENT_SHADER);
-    f->glShaderSource(fragmentShader, 1, &fragmentShaderSrc, NULL);
-    f->glCompileShader(fragmentShader);
+    // Initialize planet object
+    {
+        mPlanetVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
+
+        mPlanetVBO.create();
+        mPlanetVBO.bind();
+        mPlanetVBO.allocate(mPlanetVertices.data(), mPlanetVertices.size() * sizeof(TexVertex));
+
+        // Compile shaders
+        if (!mPlanetProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mPlanetVertPath.string().c_str())) {
+            std::cerr << "Planet vertex shader compilation failed. What: " << mPlanetProgram.log().toStdString() << std::endl;
+        }
+        if (!mPlanetProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mPlanetFragPath.string().c_str())) {
+            std::cerr << "Planet fragment shader compilation failed. What: " << mPlanetProgram.log().toStdString() << std::endl;
+        }
+        if (!mPlanetProgram.link()) {
+            std::cerr << "Planet shader program linking failed. What: " << mPlanetProgram.log().toStdString() << std::endl;
+        }
+
+        mPlanetProgram.enableAttributeArray(0);
+        mPlanetProgram.enableAttributeArray(1);
+        mPlanetProgram.enableAttributeArray(2);
+        mPlanetProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(TexVertex, x),  3, sizeof(TexVertex));
+        mPlanetProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(TexVertex, nx), 3, sizeof(TexVertex));
+        mPlanetProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(TexVertex, u),  2, sizeof(TexVertex));
+
+        mPlanetTex.setData(mPlanetImage, QOpenGLTexture::GenerateMipMaps);
+        mPlanetTex.setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+        mPlanetTex.setMagnificationFilter(QOpenGLTexture::Linear);
+        mPlanetTex.setWrapMode(QOpenGLTexture::DirectionS, QOpenGLTexture::Repeat);
+        mPlanetTex.setWrapMode(QOpenGLTexture::DirectionT, QOpenGLTexture::ClampToEdge);
+    }
     
-    f->glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &compileSuccess);
-    if (!compileSuccess) {
-        f->glGetShaderInfoLog(fragmentShader, COMPILE_LOG_SIZE, NULL, log);
-        std::cout << "Fragment shader compilation failed. What: " << log << std::endl;
+    // Initialize atmosphere object
+    {
+        mAtmoVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mAtmoVAO);
+
+        mAtmoVBO.create();
+        mAtmoVBO.bind();
+        mAtmoVBO.allocate(mAtmoVertices.data(), mAtmoVertices.size() * sizeof(SimpleVertex));
+
+        // Compile shaders
+        if (!mAtmoProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mAtmoVertPath.string().c_str())) {
+            std::cerr << "Atmosphere vertex shader compilation failed. What: " << mAtmoProgram.log().toStdString() << std::endl;
+        }
+        if (!mAtmoProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mAtmoFragPath.string().c_str())) {
+            std::cerr << "Atmosphere fragment shader compilation failed. What: " << mAtmoProgram.log().toStdString() << std::endl;
+        }
+        if (!mAtmoProgram.link()) {
+            std::cerr << "Atmosphere shader program linking failed. What: " << mAtmoProgram.log().toStdString() << std::endl;
+        }
+
+        mAtmoProgram.enableAttributeArray(0);
+        mAtmoProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(SimpleVertex, x),  3, sizeof(SimpleVertex));
     }
 
-    // Initialize shader program
-    shaderProgram = f->glCreateProgram();
-    f->glAttachShader(shaderProgram, vertexShader);
-    f->glAttachShader(shaderProgram, fragmentShader);
-    f->glLinkProgram(shaderProgram);
-    
-    f->glGetProgramiv(shaderProgram, GL_LINK_STATUS, &compileSuccess);
-    if (!compileSuccess) {
-        f->glGetProgramInfoLog(shaderProgram, COMPILE_LOG_SIZE, NULL, log);
-        std::cout << "Shader program linking failed. What: " << log << std::endl;
-    }
+    // Initialize stars
+    {
+        mStarsVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mStarsVAO);
 
-    // Clean up
-    f->glDeleteShader(vertexShader);
-    f->glDeleteShader(fragmentShader);
-    doneCurrent();
+        mStarsVBO.create();
+        mStarsVBO.bind();
+        mStarsVBO.allocate(mStars.data(), mStars.size() * sizeof(Star));
+
+        // Compile shaders
+        if (!mStarsProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mStarsVertPath.string().c_str())) {
+            std::cerr << "Stars vertex shader compilation failed. What: " << mStarsProgram.log().toStdString() << std::endl;
+        }
+        if (!mStarsProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mStarsFragPath.string().c_str())) {
+            std::cerr << "Stars fragment shader compilation failed. What: " << mStarsProgram.log().toStdString() << std::endl;
+        }
+        if (!mStarsProgram.link()) {
+            std::cerr << "Stars shader program linking failed. What: " << mStarsProgram.log().toStdString() << std::endl;
+        }
+        
+        mStarsProgram.enableAttributeArray(0);
+        mStarsProgram.enableAttributeArray(1);
+        mStarsProgram.enableAttributeArray(2);
+        mStarsProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(Star, x),    3, sizeof(Star));
+        mStarsProgram.setAttributeBuffer(1, GL_FLOAT, offsetof(Star, size), 1, sizeof(Star));
+        mStarsProgram.setAttributeBuffer(2, GL_FLOAT, offsetof(Star, tint), 1, sizeof(Star));
+    }
 }
 
 void GLSimWidget::paintGL() {
 
-    makeCurrent();
-    const auto f = context()->extraFunctions();
-
-    f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Recalculate mvp in case aspect ratio or model transform changed
     const auto aspectRatio = static_cast<float>(width()) / static_cast<float>(height());
     mProjectionMatrix(0, 0) = focalDistance / aspectRatio;
 
-    mModelMatrix = mScene.model.affine().matrix();
-    mViewMatrix = mScene.camera.affine().inverse().matrix();
-    mvp = mProjectionMatrix * mViewMatrix * mModelMatrix;
+    const Matrix4f craftModelMatrix = mScene.craft.affine().matrix();
+    const Matrix4f planetModelMatrix = mScene.planet.affine().matrix();
+    const Matrix4f viewMatrix = mScene.camera.affine().inverse().matrix();
 
-    // Set shader program and update MVP matrix
-    f->glUseProgram(shaderProgram);
-    f->glUniformMatrix4fv(f->glGetUniformLocation(shaderProgram, "mvp"), 1, GL_FALSE, mvp.data());
+    Matrix4f starsModelMatrix = Matrix4f::Identity();
+    starsModelMatrix.block<3, 1>(0, 3) = mScene.camera.affine().translation();
 
-    // Copy vertex data
-    f->glBindVertexArray(mVAO);
-    f->glDrawElements(GL_TRIANGLES, mIndices.size(), GL_UNSIGNED_INT, 0);
+    Matrix4f atmoScaleMatrix = Matrix4f::Identity();
+    atmoScaleMatrix.topLeftCorner<3,3>() *= 1.05f; // dont scale w component! otherwise it re-normalizes
+    const Matrix4f atmoModelMatrix = planetModelMatrix * atmoScaleMatrix;
 
-    doneCurrent();
+    Eigen::Map<Eigen::Matrix4f>(mCraftMVPMatrix.data()) = mProjectionMatrix * viewMatrix * craftModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mPlanetMVPMatrix.data()) = mProjectionMatrix * viewMatrix * planetModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mStarsMVPMatrix.data()) = mProjectionMatrix * viewMatrix * starsModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mAtmoMVPMatrix.data()) = mProjectionMatrix * viewMatrix * atmoModelMatrix;
+
+    const Vector3f cameraPosAtmo = Affine3f(atmoModelMatrix).inverse() * mScene.camera.position();
+    const QVector3D cameraPosAtmoQ (cameraPosAtmo.x(), cameraPosAtmo.y(), cameraPosAtmo.z());
+
+    // Draw Stars
+    {
+        // Set shader program
+        mStarsProgram.bind();
+        mStarsProgram.setUniformValue("aMVP", mStarsMVPMatrix);
+
+        // Bind and render mesh
+        glDepthMask(GL_FALSE);
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mStarsVAO);
+        glDrawArrays(GL_POINTS, 0, mStars.size());
+        glDepthMask(GL_TRUE);
+
+        mStarsProgram.release();
+    }
+
+    // Draw Planet
+    {
+        // Set shader program and update MVP matrix
+        mPlanetProgram.bind();
+        mPlanetProgram.setUniformValue("aMVP", mPlanetMVPMatrix);
+
+        // Bind texture
+        mPlanetTex.bind();
+
+        // Bind and render mesh
+        glDepthMask(GL_FALSE);
+        glCullFace(GL_FRONT); // Flip the cull direction for better resolution
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
+        glDrawArrays(GL_TRIANGLES, 0, mPlanetVertices.size());
+        glCullFace(GL_BACK); 
+        glDepthMask(GL_TRUE);
+
+        mPlanetTex.release();
+        mPlanetProgram.release();
+    }
+
+    // Draw Atmosphere
+    {
+        // Set shader program
+        mAtmoProgram.bind();
+        mAtmoProgram.setUniformValue("aMVP", mAtmoMVPMatrix);
+        mAtmoProgram.setUniformValue("aCameraPosAtmo", cameraPosAtmoQ);
+
+        // Bind and render mesh
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mAtmoVAO);
+        glDrawArrays(GL_TRIANGLES, 0, mAtmoVertices.size());
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+
+        mAtmoProgram.release();
+    }
+
+    // Draw Spacecraft
+    {
+        // Set shader program and update MVP matrix
+        mCraftProgram.bind();
+        mCraftProgram.setUniformValue("aMVP", mCraftMVPMatrix);
+
+        // Bind and render mesh without culling
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mCraftVAO);
+        
+        glDisable(GL_CULL_FACE);
+        glDrawArrays(GL_TRIANGLES, 0, mCraftVertices.size());
+        glEnable(GL_CULL_FACE);
+
+        mCraftProgram.release();
+    }
 }
 
 GLSimWidget::GLSimWidget(const Scene& aScene) 
@@ -148,45 +374,83 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
     mProjectionMatrix(2, 3) = cameraFarPlane * 2.0f * (cameraNearPlane / (cameraFarPlane - cameraNearPlane) * -1);  //    near plane to -1 and far to +1
     mProjectionMatrix(3, 2) = -1.0f;                                                                                // divide all by -z for perspective scaling
 
-    // Vertex Data
-    int i = 0;
-    for (const auto x: {-0.5f, 0.5f}) {
-        for (const auto y: {0.5f, -0.5f}) {
-            for (const auto z: {0.5f, -0.5f}) {
-                mVertices[i++] = {x, y, z};
+    // Import Asset Data
+
+    const std::filesystem::path dataDir {APP_RESOURCE_DIR};
+    const auto assetsDir = dataDir / "assets";
+
+    const auto craftMeshPath = assetsDir / "Galileo.glb";
+    mCraftVertPath           = assetsDir / "galileo.vert";
+    mCraftFragPath           = assetsDir / "galileo.frag";
+
+    const auto planetImagePath = assetsDir / "HD_189733_b.jpg";
+    mPlanetVertPath            = assetsDir / "HD_189733_b.vert";
+    mPlanetFragPath            = assetsDir / "HD_189733_b.frag";
+
+    mAtmoVertPath = assetsDir / "atmosphere.vert";
+    mAtmoFragPath = assetsDir / "atmosphere.frag";
+
+    mStarsVertPath = assetsDir / "stars.vert";
+    mStarsFragPath = assetsDir / "stars.frag";
+
+    const auto resourcePaths = {
+        craftMeshPath, mCraftVertPath, mCraftFragPath,
+        planetImagePath, mPlanetVertPath, mPlanetFragPath,
+        mAtmoVertPath, mAtmoFragPath,
+        mStarsVertPath, mStarsFragPath
+    };
+
+    for (const auto& path : resourcePaths) {
+
+        if (std::filesystem::exists(path)) {
+            std::cout << std::format("Found \"{}\".", path.string()) << "\n";
+        }
+
+        else {
+            std::cerr << std::format("Unable to locate asset: {}.", path.string()) << std::endl;
+            std::abort();
+        }
+    };
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(
+        craftMeshPath,
+        aiProcess_Triangulate
+        | aiProcess_PreTransformVertices
+        | aiProcess_GenSmoothNormals
+        | aiProcess_FlipWindingOrder
+    );
+
+    if (!scene || !scene->mRootNode) {
+        std::cerr << std::format(
+            "{}: Failed during import of mesh/texture assets.",
+            std::source_location::current().function_name()
+        ) << std::endl;
+        std::abort();
+    }
+
+    for (unsigned m = 0; m < scene->mNumMeshes; m++) {
+        const aiMesh* mesh = scene->mMeshes[m];
+        aiColor4D color;
+        scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+        for (unsigned f = 0; f < mesh->mNumFaces; f++) {
+            for (unsigned v = 0; v < 3; v++) {
+                const aiVector3D& vertex = mesh->mVertices[mesh->mFaces[f].mIndices[v]];
+                const aiVector3D& normal = mesh->mNormals[mesh->mFaces[f].mIndices[v]];
+                mCraftVertices.push_back({
+                    vertex.x, vertex.y, vertex.z,
+                    normal.x, normal.y, normal.z,
+                    color.r, color.g, color.b
+                });
             }
         }
     }
 
-    // 0 = top left front
-    // +1 = front -> back
-    // +2 = top -> bottom
-    // +4 = left -> right
-    mIndices = {
-        // front
-        0u, 2u, 6u,
-        0u, 4u, 6u,
+    mPlanetVertices = createSphereVertices(128);
+    mPlanetImage = QImage(planetImagePath.string().c_str());
 
-        // left
-        1u, 3u, 2u,
-        1u, 0u, 2u,
-
-        // right
-        4u, 6u, 7u,
-        4u, 5u, 7u,
-
-        // back
-        5u, 7u, 3u,
-        5u, 1u, 3u,
-
-        // top
-        1u, 0u, 4u,
-        1u, 5u, 4u,
-
-        // bottom
-        2u, 3u, 7u,
-        2u, 6u, 7u,
-    };
+    mAtmoVertices = createSimpleSphereVertices(128);
+    mStars = createStars(3000, 0);
 }
 
 } // namespace adcs

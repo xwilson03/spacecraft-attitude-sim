@@ -52,15 +52,6 @@ public:
         mAngularVelocity = aAngularMomentum.cwiseQuotient(mRotationalInertia);
     }
 
-    void setScale (const auto& aScale) {
-        mScale = aScale;
-        mRotationalInertia = Vector3f(
-            mScale.y() * mScale.y() + mScale.z() * mScale.z(),
-            mScale.x() * mScale.x() + mScale.z() * mScale.z(),
-            mScale.x() * mScale.x() + mScale.y() * mScale.y()
-        );
-    }
-
     void step (const float deltaTime, const Vector3f internalMomentum = Vector3f::Zero()) {
 
         if (deltaTime == 0.0f) return;
