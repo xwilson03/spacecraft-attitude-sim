@@ -44,6 +44,10 @@ struct Star {
     float size, tint;
 };
 
+struct SimpleVertex {
+    float x, y, z;
+};
+
 class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
 
     Q_OBJECT
@@ -70,6 +74,16 @@ class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
     std::filesystem::path mPlanetFragPath;
     QOpenGLShaderProgram  mPlanetProgram;
 
+    // Atmosphere
+    std::vector<SimpleVertex> mAtmoVertices;
+    QOpenGLVertexArrayObject mAtmoVAO;
+    QOpenGLBuffer mAtmoVBO {QOpenGLBuffer::VertexBuffer};
+    QMatrix4x4 mAtmoMVPMatrix;
+
+    std::filesystem::path mAtmoVertPath;
+    std::filesystem::path mAtmoFragPath;
+    QOpenGLShaderProgram  mAtmoProgram;
+
     // Stars
     std::vector<Star> mStars;
     QOpenGLVertexArrayObject mStarsVAO;
@@ -85,7 +99,7 @@ class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
     Matrix4f mProjectionMatrix;
 
     const float cameraVertFovDeg = 70.0f;
-    const float cameraNearPlane = 0.1f;
+    const float cameraNearPlane = 0.01f;
     const float cameraFarPlane = 100.0f;
     // use vertical FOV to compute distance from camera where screen height = 2 world units (+-1)
     const float focalDistance = 1.0f / std::tan((cameraVertFovDeg * pi / 180.0f) / 2.0f);
@@ -93,6 +107,10 @@ class GLSimWidget : public QOpenGLWidget , protected QOpenGLExtraFunctions {
 
     TexVertex createSphereVertex (const float phi, const float theta);
     std::vector<TexVertex> createSphereVertices (const unsigned resolution);
+    
+    SimpleVertex createSimpleSphereVertex (const float phi, const float theta);
+    std::vector<SimpleVertex> createSimpleSphereVertices (const unsigned resolution);
+    
     std::vector<Star> createStars (const unsigned count, const unsigned seed);
 
     void initializeGL() override;

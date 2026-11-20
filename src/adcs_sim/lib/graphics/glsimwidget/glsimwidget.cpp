@@ -8,6 +8,7 @@ import adcs.Transform;
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
+#include <QVector3D>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -17,6 +18,7 @@ import adcs.Transform;
 #include <random>
 #include <source_location>
 
+using Eigen::Affine3f;
 using Eigen::Matrix4f;
 using Eigen::Vector3f;
 
@@ -33,8 +35,8 @@ TexVertex GLSimWidget::createSphereVertex (
     return {
         x, y, z,
         x, y, z,
-        1.0f - phi / (2.0f * adcs::pi),
-        theta / adcs::pi
+        phi / (2.0f * pi),
+        theta / pi
     };
 }
 
@@ -59,7 +61,45 @@ std::vector<TexVertex> GLSimWidget::createSphereVertices (
             const auto c = createSphereVertex(phi2, theta2);
             const auto d = createSphereVertex(phi2, theta1);
 
-            vertices.insert(vertices.end(), {a, b, c, a, c, d});
+            vertices.insert(vertices.end(), {a, c, b, a, d, c});
+        }
+    }
+
+    return vertices;
+}
+
+SimpleVertex GLSimWidget::createSimpleSphereVertex (
+    const float phi,
+    const float theta
+) {
+    const float x = std::sin(theta) * std::cos(phi);
+    const float y = std::cos(theta);
+    const float z = std::sin(theta) * std::sin(phi);
+    return { x, y, z };
+}
+
+std::vector<SimpleVertex> GLSimWidget::createSimpleSphereVertices (
+    const unsigned resolution
+) {
+    const float deltaPhi = 2 * pi / resolution;
+    const float deltaTheta = pi / resolution;
+
+    std::vector<SimpleVertex> vertices;
+    vertices.reserve(resolution * resolution * 6);
+    for (unsigned x = 0; x < resolution; x++) {
+        for (unsigned y = 0; y < resolution; y++) {
+
+            const float phi1 = deltaPhi * x;
+            const float phi2 = deltaPhi * (x + 1);
+            const float theta1 = deltaTheta * y;
+            const float theta2 = deltaTheta * (y + 1);
+
+            const auto a = createSimpleSphereVertex(phi1, theta1);
+            const auto b = createSimpleSphereVertex(phi1, theta2);
+            const auto c = createSimpleSphereVertex(phi2, theta2);
+            const auto d = createSimpleSphereVertex(phi2, theta1);
+
+            vertices.insert(vertices.end(), {a, c, b, a, d, c});
         }
     }
 
@@ -99,6 +139,8 @@ void GLSimWidget::initializeGL() {
     initializeOpenGLFunctions();
     glClearColor(0.0, 0.0, 0.0, 1.0);
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
@@ -165,6 +207,30 @@ void GLSimWidget::initializeGL() {
         mPlanetTex.setWrapMode(QOpenGLTexture::DirectionT, QOpenGLTexture::ClampToEdge);
     }
     
+    // Initialize atmosphere object
+    {
+        mAtmoVAO.create();
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mAtmoVAO);
+
+        mAtmoVBO.create();
+        mAtmoVBO.bind();
+        mAtmoVBO.allocate(mAtmoVertices.data(), mAtmoVertices.size() * sizeof(SimpleVertex));
+
+        // Compile shaders
+        if (!mAtmoProgram.addShaderFromSourceFile(QOpenGLShader::Vertex, mAtmoVertPath.string().c_str())) {
+            std::cerr << "Atmosphere vertex shader compilation failed. What: " << mAtmoProgram.log().toStdString() << std::endl;
+        }
+        if (!mAtmoProgram.addShaderFromSourceFile(QOpenGLShader::Fragment, mAtmoFragPath.string().c_str())) {
+            std::cerr << "Atmosphere fragment shader compilation failed. What: " << mAtmoProgram.log().toStdString() << std::endl;
+        }
+        if (!mAtmoProgram.link()) {
+            std::cerr << "Atmosphere shader program linking failed. What: " << mAtmoProgram.log().toStdString() << std::endl;
+        }
+
+        mAtmoProgram.enableAttributeArray(0);
+        mAtmoProgram.setAttributeBuffer(0, GL_FLOAT, offsetof(SimpleVertex, x),  3, sizeof(SimpleVertex));
+    }
+
     // Initialize stars
     {
         mStarsVAO.create();
@@ -209,9 +275,17 @@ void GLSimWidget::paintGL() {
     Matrix4f starsModelMatrix = Matrix4f::Identity();
     starsModelMatrix.block<3, 1>(0, 3) = mScene.camera.affine().translation();
 
+    Matrix4f atmoScaleMatrix = Matrix4f::Identity();
+    atmoScaleMatrix.topLeftCorner<3,3>() *= 1.1f; // dont scale w component! otherwise it re-normalizes
+    const Matrix4f atmoModelMatrix = planetModelMatrix * atmoScaleMatrix;
+
     Eigen::Map<Eigen::Matrix4f>(mCraftMVPMatrix.data()) = mProjectionMatrix * viewMatrix * craftModelMatrix;
     Eigen::Map<Eigen::Matrix4f>(mPlanetMVPMatrix.data()) = mProjectionMatrix * viewMatrix * planetModelMatrix;
     Eigen::Map<Eigen::Matrix4f>(mStarsMVPMatrix.data()) = mProjectionMatrix * viewMatrix * starsModelMatrix;
+    Eigen::Map<Eigen::Matrix4f>(mAtmoMVPMatrix.data()) = mProjectionMatrix * viewMatrix * atmoModelMatrix;
+
+    const Vector3f cameraPosAtmo = Affine3f(atmoModelMatrix).inverse() * mScene.camera.position();
+    const QVector3D cameraPosAtmoQ (cameraPosAtmo.x(), cameraPosAtmo.y(), cameraPosAtmo.z());
 
     // Draw Stars
     {
@@ -220,11 +294,10 @@ void GLSimWidget::paintGL() {
         mStarsProgram.setUniformValue("aMVP", mStarsMVPMatrix);
 
         // Bind and render mesh
+        glDepthMask(GL_FALSE);
         QOpenGLVertexArrayObject::Binder vaoBinder(&mStarsVAO);
         glDrawArrays(GL_POINTS, 0, mStars.size());
-
-        // Force stars into background
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glDepthMask(GL_TRUE);
 
         mStarsProgram.release();
     }
@@ -239,14 +312,31 @@ void GLSimWidget::paintGL() {
         mPlanetTex.bind();
 
         // Bind and render mesh
+        glDepthMask(GL_FALSE);
         QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
         glDrawArrays(GL_TRIANGLES, 0, mPlanetVertices.size());
-
-        // Force planet into background
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glDepthMask(GL_TRUE);
 
         mPlanetTex.release();
         mPlanetProgram.release();
+    }
+
+    // Draw Atmosphere
+    {
+        // Set shader program
+        mAtmoProgram.bind();
+        mAtmoProgram.setUniformValue("aMVP", mAtmoMVPMatrix);
+        mAtmoProgram.setUniformValue("aCameraPosAtmo", cameraPosAtmoQ);
+
+        // Bind and render mesh
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+        QOpenGLVertexArrayObject::Binder vaoBinder(&mAtmoVAO);
+        glDrawArrays(GL_TRIANGLES, 0, mAtmoVertices.size());
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+
+        mAtmoProgram.release();
     }
 
     // Draw Spacecraft
@@ -295,12 +385,16 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
     mPlanetVertPath            = assetsDir / "HD_189733_b.vert";
     mPlanetFragPath            = assetsDir / "HD_189733_b.frag";
 
+    mAtmoVertPath = assetsDir / "atmosphere.vert";
+    mAtmoFragPath = assetsDir / "atmosphere.frag";
+
     mStarsVertPath = assetsDir / "stars.vert";
     mStarsFragPath = assetsDir / "stars.frag";
 
     const auto resourcePaths = {
         craftMeshPath, mCraftVertPath, mCraftFragPath,
         planetImagePath, mPlanetVertPath, mPlanetFragPath,
+        mAtmoVertPath, mAtmoFragPath,
         mStarsVertPath, mStarsFragPath
     };
 
@@ -353,6 +447,7 @@ GLSimWidget::GLSimWidget(const Scene& aScene)
     mPlanetVertices = createSphereVertices(128);
     mPlanetImage = QImage(planetImagePath.string().c_str());
 
+    mAtmoVertices = createSimpleSphereVertices(128);
     mStars = createStars(3000, 0);
 }
 
