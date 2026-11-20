@@ -313,8 +313,10 @@ void GLSimWidget::paintGL() {
 
         // Bind and render mesh
         glDepthMask(GL_FALSE);
+        glCullFace(GL_FRONT); // Flip the cull direction for better resolution
         QOpenGLVertexArrayObject::Binder vaoBinder(&mPlanetVAO);
         glDrawArrays(GL_TRIANGLES, 0, mPlanetVertices.size());
+        glCullFace(GL_BACK); 
         glDepthMask(GL_TRUE);
 
         mPlanetTex.release();
