@@ -1,7 +1,6 @@
+import adcs.MsgHelpers;
 import adcs.Rigidbody;
 import adcs.Spacecraft;
-
-#include "simsnooper.hpp"
 
 #include <Eigen/Dense>
 #include <adcs_msgs/msg/spacecraft.hpp>

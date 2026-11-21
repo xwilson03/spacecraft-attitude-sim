@@ -1,4 +1,5 @@
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
+find_package(rclcpp REQUIRED)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -6,7 +7,8 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         Eigen3::Eigen
-        simsnooper
+        msg_helpers
+        rclcpp::rclcpp
         spacecraft
         transform
 )

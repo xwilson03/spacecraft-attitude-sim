@@ -1,13 +1,4 @@
-#include "simsnooper.hpp"
-
-import adcs.Actuator;
-import adcs.Magnetorquer;
-import adcs.PDController;
-import adcs.ReactionWheel;
-import adcs.Rigidbody;
-import adcs.Spacecraft;
-import adcs.Transform;
-
+module;
 #include <Eigen/Dense>
 #include <adcs_msgs/msg/actuator.hpp>
 #include <adcs_msgs/msg/magnetorquer.hpp>
@@ -18,6 +9,15 @@ import adcs.Transform;
 #include <adcs_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
+export module adcs.MsgHelpers;
+
+import adcs.Actuator;
+import adcs.Magnetorquer;
+import adcs.PDController;
+import adcs.ReactionWheel;
+import adcs.Rigidbody;
+import adcs.Spacecraft;
+import adcs.Transform;
 
 using Eigen::Quaternionf;
 using Eigen::Vector3f;
@@ -30,7 +30,7 @@ using adcs::Spacecraft;
 using adcs::Transform;
 
 
-namespace adcs {
+export namespace adcs {
 
 void toMsg (
     const Vector3f& in,
@@ -90,6 +90,25 @@ void toMsg (
 }
 
 void toMsg (
+    const Transform& in,
+    adcs_msgs::msg::Transform& out
+) {
+    toMsg(in.position(), out.position);
+    toMsg(in.rotation(), out.rotation);
+    toMsg(in.scale(),    out.scale);
+}
+
+void toMsg (
+    const Rigidbody& in,
+    adcs_msgs::msg::Rigidbody& out
+) {
+    toMsg(static_cast<const Transform&>(in), out.transform);
+    toMsg(in.angularVelocity(),              out.angular_velocity);
+    toMsg(in.torque(),                       out.torque);
+    toMsg(in.rotationalInertia(),            out.rotational_inertia);
+}
+
+void toMsg (
     const ReactionWheel& in,
     adcs_msgs::msg::ReactionWheel& out
 ) {
@@ -105,16 +124,6 @@ void toMsg (
 }
 
 void toMsg (
-    const Rigidbody& in,
-    adcs_msgs::msg::Rigidbody& out
-) {
-    toMsg(static_cast<const Transform&>(in), out.transform);
-    toMsg(in.angularVelocity(),              out.angular_velocity);
-    toMsg(in.torque(),                       out.torque);
-    toMsg(in.rotationalInertia(),            out.rotational_inertia);
-}
-
-void toMsg (
     const Spacecraft& in,
     adcs_msgs::msg::Spacecraft& out
 ) {
@@ -125,15 +134,6 @@ void toMsg (
     toMsg(in.magtorqueX(), out.magtorque_x);
     toMsg(in.magtorqueY(), out.magtorque_y);
     toMsg(in.magtorqueZ(), out.magtorque_z);
-}
-
-void toMsg (
-    const Transform& in,
-    adcs_msgs::msg::Transform& out
-) {
-    toMsg(in.position(), out.position);
-    toMsg(in.rotation(), out.rotation);
-    toMsg(in.scale(),    out.scale);
 }
 
 } // namespace adcs
