@@ -32,7 +32,7 @@ using adcs::Transform;
 
 namespace adcs {
 
-void SimSnooper::toMsg (
+void toMsg (
     const Vector3f& in,
     geometry_msgs::msg::Vector3& out
 ) {
@@ -41,7 +41,7 @@ void SimSnooper::toMsg (
     out.z = in.z();
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const Quaternionf& in,
     geometry_msgs::msg::Quaternion& out
 ) {
@@ -51,7 +51,7 @@ void SimSnooper::toMsg (
     out.z = in.z();
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const Actuator& in,
     adcs_msgs::msg::Actuator& out
 ) {
@@ -65,7 +65,7 @@ void SimSnooper::toMsg (
     out.time_to_next_poll     = in.timeToNextPoll();
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const Magnetorquer& in,
     adcs_msgs::msg::Magnetorquer& out
 ) {
@@ -80,7 +80,7 @@ void SimSnooper::toMsg (
     out.time_to_next_poll     = in.timeToNextPoll();
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const PDController<float>& in,
     adcs_msgs::msg::PDControllerFloat& out
 ) {
@@ -89,7 +89,7 @@ void SimSnooper::toMsg (
     out.last_error = in.lastError();
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const ReactionWheel& in,
     adcs_msgs::msg::ReactionWheel& out
 ) {
@@ -104,7 +104,7 @@ void SimSnooper::toMsg (
     toMsg(in.actuatorController(), out.actuator_controller);
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const Rigidbody& in,
     adcs_msgs::msg::Rigidbody& out
 ) {
@@ -114,7 +114,7 @@ void SimSnooper::toMsg (
     toMsg(in.rotationalInertia(),            out.rotational_inertia);
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const Spacecraft& in,
     adcs_msgs::msg::Spacecraft& out
 ) {
@@ -127,18 +127,13 @@ void SimSnooper::toMsg (
     toMsg(in.magtorqueZ(), out.magtorque_z);
 }
 
-void SimSnooper::toMsg (
+void toMsg (
     const Transform& in,
     adcs_msgs::msg::Transform& out
 ) {
     toMsg(in.position(), out.position);
     toMsg(in.rotation(), out.rotation);
     toMsg(in.scale(),    out.scale);
-}
-
-void SimSnooper::publish() {
-    toMsg(mCraft, mMsg);
-    mCraftPub->publish(mMsg);
 }
 
 } // namespace adcs

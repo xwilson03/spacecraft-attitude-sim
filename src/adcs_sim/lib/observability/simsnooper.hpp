@@ -18,9 +18,6 @@ import adcs.Transform;
 #include <adcs_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
-#include <rclcpp/create_publisher.hpp>
-#include <rclcpp/node.hpp>
-#include <rclcpp/publisher.hpp>
 
 using Eigen::Quaternionf;
 using Eigen::Vector3f;
@@ -31,17 +28,9 @@ using adcs::ReactionWheel;
 using adcs::Rigidbody;
 using adcs::Spacecraft;
 using adcs::Transform;
-using rclcpp::Publisher;
-using rclcpp::create_publisher;
 
 
 namespace adcs {
-
-class SimSnooper : public rclcpp::Node {
-
-    const Spacecraft& mCraft;
-    adcs_msgs::msg::Spacecraft mMsg;
-    Publisher<adcs_msgs::msg::Spacecraft>::SharedPtr mCraftPub;
 
     void toMsg (const Vector3f& in, geometry_msgs::msg::Vector3& out);
     void toMsg (const Quaternionf& in, geometry_msgs::msg::Quaternion& out);
@@ -52,18 +41,5 @@ class SimSnooper : public rclcpp::Node {
     void toMsg (const Rigidbody& in, adcs_msgs::msg::Rigidbody& out);
     void toMsg (const Spacecraft& in, adcs_msgs::msg::Spacecraft& out);
     void toMsg (const Transform& in, adcs_msgs::msg::Transform& out);
-
-public:
-
-    SimSnooper(
-        const Spacecraft& aCraft
-    )
-    : Node("sim_snooper")
-    , mCraft(aCraft)
-    , mCraftPub(create_publisher<adcs_msgs::msg::Spacecraft>("craft", 10))
-    {};
-
-    void publish();
-};
 
 } // namespace sdcs
