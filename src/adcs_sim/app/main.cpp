@@ -1,30 +1,21 @@
 #define EIGEN_DEFAULT_IO_FORMAT Eigen::IOFormat(4, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]")
 
 #include <Eigen/Dense>
-#include <QApplication>
-#include <QTimer>
 #include "simsnooper.hpp"
 
-import adcs.GLSimWidget;
+import adcs.Rigidbody;
 import adcs.Spacecraft;
-import adcs.Transform;
 
 using Eigen::Vector3f;
-using adcs::GLSimWidget;
-using adcs::Scene;
+using adcs::Rigidbody;
 using adcs::SimSnooper;
 using adcs::Spacecraft;
-using adcs::Transform;
 
 
 int main(int argc, char* argv[]) {
 
     // State
     const float& pi = std::numbers::pi_v<float>;
-
-    Transform camera;
-    camera.setPosition( Vector3f(5.0f, 5.0f, 5.0f) );
-    camera.setRotation( Vector3f(-36.0f, 45.0f, 0.0f) * pi / 180.0f );
 
     Spacecraft craft;
     craft.setScale(Vector3f(1,1,1) / 64);
@@ -36,16 +27,8 @@ int main(int argc, char* argv[]) {
     planet.setPosition( Vector3f(5.5f, 4.0f, 4.5f) );
     planet.setAngularVelocity( Vector3f(0.f, -0.01f, 0.0f) );
 
-    Scene scene {
-        .camera = camera,
-        .craft = craft,
-        .planet = planet
-    };
-
     // App Setup
     rclcpp::init(argc, argv);
-    QApplication app (argc, argv);
-    GLSimWidget window (scene);
     auto snooper = std::make_shared<SimSnooper>(craft);
 
     float absoluteTime = 0.0f;
@@ -60,12 +43,6 @@ int main(int argc, char* argv[]) {
     });
     physics.start(1);
 
-    QTimer display;
-    QObject::connect(&display, &QTimer::timeout, [&]() { window.update(); });
-    display.start(static_cast<int>(1.0f / 120.0f * 1000.0f));
-
-    window.show();
-    int status = app.exec();
     rclcpp::shutdown();
     return status;
 }
